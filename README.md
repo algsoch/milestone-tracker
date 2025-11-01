@@ -2,7 +2,10 @@
 
 🚀 **Full-Stack Project Management Dashboard** built with Python FastAPI + MongoDB
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+[![Live Demo](https://img.shields.io/badge/demo-live-success?style=for-the-badge&logo=render)](https://milestone-tracker-vq7d.onrender.com/)
+[![Deploy to Render](https://img.shields.io/badge/deploy-render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/deploy)
+
+> **🌐 Live Application:** [https://milestone-tracker-vq7d.onrender.com/](https://milestone-tracker-vq7d.onrender.com/)
 
 ## 🌟 Features
 
@@ -303,12 +306,31 @@ docker build --no-cache -t milestone-tracker .
 # View application logs
 docker-compose logs -f milestone-tracker
 
-# Check health endpoint
+# Check health endpoint (Local)
 curl http://localhost:8000/health
+
+# Check health endpoint (Production)
+curl https://milestone-tracker-vq7d.onrender.com/health
 
 # Monitor MongoDB Atlas
 # Use built-in Atlas monitoring dashboard
 ```
+
+## 🌐 Live Deployment
+
+**Production Application:** [https://milestone-tracker-vq7d.onrender.com/](https://milestone-tracker-vq7d.onrender.com/)
+
+### Quick Access
+- 📊 **Dashboard:** [https://milestone-tracker-vq7d.onrender.com/](https://milestone-tracker-vq7d.onrender.com/)
+- ⚙️ **Admin Panel:** Click "Admin Panel" button on dashboard
+- 📚 **API Docs:** [https://milestone-tracker-vq7d.onrender.com/docs](https://milestone-tracker-vq7d.onrender.com/docs)
+- 💓 **Health Check:** [https://milestone-tracker-vq7d.onrender.com/health](https://milestone-tracker-vq7d.onrender.com/health)
+
+### Deployment Details
+- **Platform:** Render (Free Tier)
+- **Auto-Deploy:** Enabled via GitHub Actions
+- **Uptime:** Keep-alive workflow (pings every 14 minutes)
+- **Database:** MongoDB Atlas
 
 ## 📞 Support
 
@@ -332,7 +354,17 @@ This project is created for IITian Academy milestone tracking. All rights reserv
 
 ---
 
-**Deployment URL:** `https://your-app-name.onrender.com`  
-**Admin Panel:** Toggle via dashboard button  
-**API Documentation:** `/docs` endpoint  
+<div align="center">
+
+### 🚀 Production Deployment
+
+**Live URL:** [milestone-tracker-vq7d.onrender.com](https://milestone-tracker-vq7d.onrender.com/)
+
+[![Admin Panel](https://img.shields.io/badge/Admin-Panel-blue?style=flat-square)](https://milestone-tracker-vq7d.onrender.com/)
+[![API Docs](https://img.shields.io/badge/API-Documentation-green?style=flat-square)](https://milestone-tracker-vq7d.onrender.com/docs)
+[![Health](https://img.shields.io/badge/Health-Check-success?style=flat-square)](https://milestone-tracker-vq7d.onrender.com/health)
+
+**Made with ❤️ for IITian Academy**
+
+</div>  
 **Last Updated:** October 16, 2025
