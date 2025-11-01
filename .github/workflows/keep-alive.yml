@@ -10,11 +10,14 @@ jobs:
   keep-alive:
     runs-on: ubuntu-latest
     
+    env:
+      APP_URL: https://milestone-tracker-vq7d.onrender.com
+    
     steps:
       - name: Ping Health Endpoint
         run: |
           echo "Pinging application to keep it alive..."
-          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.RENDER_APP_URL }}/health)
+          response=$(curl -s -o /dev/null -w "%{http_code}" $APP_URL/health)
           if [ $response -eq 200 ]; then
             echo "✅ App is healthy (HTTP $response)"
           else
@@ -23,7 +26,7 @@ jobs:
           
       - name: Ping Dashboard
         run: |
-          curl -s ${{ secrets.RENDER_APP_URL }} > /dev/null
+          curl -s $APP_URL > /dev/null
           echo "✅ Dashboard pinged"
           
       - name: Log Status
