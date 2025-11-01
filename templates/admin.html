@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - IITian Academy Milestone Tracker</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/styles.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="admin-body">
+    <div class="admin-container">
+        <!-- Login Section -->
+        <div class="admin-login-section" id="adminLoginSection">
+            <div class="admin-login-card">
+                <div class="admin-header">
+                    <i class="fas fa-shield-alt"></i>
+                    <h2>Admin Login</h2>
+                    <p>IITian Academy Milestone Tracker</p>
+                </div>
+                <form id="adminLoginForm" class="admin-login-form">
+                    <div class="form-group">
+                        <label for="adminEmail">
+                            <i class="fas fa-envelope"></i>
+                            Email Address
+                        </label>
+                        <input 
+                            type="email" 
+                            id="adminEmail" 
+                            name="email" 
+                            required 
+                            autocomplete="username"
+                            data-form-type="admin-login"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="adminPassword">
+                            <i class="fas fa-lock"></i>
+                            Password
+                        </label>
+                        <input 
+                            type="password" 
+                            id="adminPassword" 
+                            name="password" 
+                            required 
+                            autocomplete="current-password"
+                            data-form-type="admin-login"
+                        >
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login as Admin
+                    </button>
+                </form>
+                <div class="back-to-dashboard">
+                    <a href="/" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard Section -->
+        <div class="admin-dashboard-section" id="adminDashboardSection" style="display: none;">
+            <header class="admin-header-nav">
+                <div class="admin-nav-content">
+                    <div class="admin-logo">
+                        <i class="fas fa-shield-alt"></i>
+                        <div class="admin-logo-text">
+                            <h1>Admin Panel</h1>
+                            <span class="admin-subtitle">Milestone Management</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Hamburger Menu Button (Mobile Only) -->
+                    <button class="hamburger-menu" id="hamburgerMenu" aria-label="Toggle menu">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    
+                    <div class="admin-nav-actions" id="adminNavActions">
+                        <span class="admin-user-info" id="adminUserInfo">
+                            <i class="fas fa-user-shield"></i>
+                            <span id="adminUsername">Admin</span>
+                        </span>
+                        <a href="/" class="btn btn-secondary">
+                            <i class="fas fa-home"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <button id="adminLogoutBtn" class="btn btn-danger">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="admin-content">
+                <!-- Milestone Selector -->
+                <div class="milestone-selector-wrapper">
+                    <label for="milestoneFilter" class="milestone-filter-label">
+                        <i class="fas fa-filter"></i> View Milestone:
+                    </label>
+                    <select id="milestoneFilter" class="milestone-filter-select">
+                        <option value="all">All Milestones (Combined)</option>
+                    </select>
+                </div>
+
+                <!-- Quick Stats -->
+                <section class="admin-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-tasks"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalMilestones">0</h3>
+                            <p id="milestoneTotalLabel">Total Milestones</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="completedMilestones">0</h3>
+                            <p id="completedLabel">Questions Completed</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="pendingMilestones">0</h3>
+                            <p id="pendingLabel">Questions Remaining</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalAmount">$0</h3>
+                            <p id="amountLabel">Milestone Amount</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="progressPercentage">0%</h3>
+                            <p>Progress</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-credit-card"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="paymentStatus">-</h3>
+                            <p>Payment Status</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Milestone Management -->
+                <section class="milestone-management">
+                    <div class="section-header">
+                        <h2><i class="fas fa-flag-checkered"></i> Milestone Management</h2>
+                        <button id="createMilestoneBtn" class="btn btn-success">
+                            <i class="fas fa-plus"></i>
+                            Create New Milestone
+                        </button>
+                    </div>
+                    
+                    <div class="milestones-table-container">
+                        <table class="milestones-table" id="milestonesTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Title</th>
+                                    <th>Questions Range</th>
+                                    <th>Amount</th>
+                                    <th>Payment Status</th>
+                                    <th>Progress</th>
+                                    <th>Deadline</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="milestonesTableBody">
+                                <tr>
+                                    <td colspan="8" class="no-data">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>No milestones found. Create your first milestone!</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Milestone Progress Section -->
+                <section class="progress-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-chart-line"></i> Milestone Progress Tracking</h2>
+                    </div>
+                    
+                    <div class="progress-cards">
+                        <!-- Previous Milestone Progress -->
+                        <div class="progress-card" id="previousMilestoneCard" style="display: none;">
+                            <div class="progress-info" id="previousMilestoneInfo">
+                                <h3>✅ Previous Milestone</h3>
+                                <div class="progress-bar">
+                                    <div class="progress-fill completed" id="previousMilestoneProgressFill" style="width: 0%"></div>
+                                </div>
+                                <p id="previousMilestoneProgressText">No previous milestone</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Current Milestone Progress -->
+                        <div class="progress-card" id="milestoneProgressCard">
+                            <div class="progress-info" id="milestoneProgressInfo">
+                                <h3>⏳ Current Milestone: Loading...</h3>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="milestoneProgressFill" style="width: 0%"></div>
+                                </div>
+                                <p id="milestoneProgressText">Loading milestone progress...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-card" id="overallProgressCard">
+                            <div class="progress-info" id="overallProgressInfo">
+                                <h3>🎯 Overall Progress</h3>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="overallProgressFill" style="width: 0%"></div>
+                                </div>
+                                <p id="overallProgressText">Loading overall progress...</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Question Pages Management -->
+                <section class="pages-management">
+                    <div class="section-header">
+                        <h2><i class="fas fa-file-alt"></i> Question Pages Management</h2>
+                        <div class="section-controls">
+                            <button id="addPageBtn" class="btn btn-success">
+                                <i class="fas fa-plus"></i>
+                                Add New Page
+                            </button>
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="pagesSearch" placeholder="Search pages...">
+                            </div>
+                            <select id="statusFilter" class="status-filter">
+                                <option value="">All Status</option>
+                                <option value="completed">Completed</option>
+                                <option value="partial">Partial</option>
+                                <option value="pending">Pending</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="pages-table-container">
+                        <table class="pages-table" id="pagesTable">
+                            <thead>
+                                <tr>
+                                    <th>S.NO.</th>
+                                    <th>PAGE LINK</th>
+                                    <th>TOTAL QUESTIONS</th>
+                                    <th>Completed</th>
+                                    <th>Remaining</th>
+                                    <th>Subject</th>
+                                    <th>Year</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pagesTableBody">
+                                <tr>
+                                    <td colspan="9" class="no-data">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>Loading question pages...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Milestone Modal -->
+    <div class="modal" id="milestoneModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Create New Milestone</h3>
+                <button class="modal-close" id="modalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="milestoneForm" class="modal-form">
+                <input type="hidden" id="milestoneId" name="id">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="milestoneTitle">
+                            <i class="fas fa-heading"></i>
+                            Milestone Title
+                        </label>
+                        <input type="text" id="milestoneTitle" name="title" placeholder="e.g., Milestone 1: First 480 Questions" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="milestoneDescription">
+                        <i class="fas fa-align-left"></i>
+                        Description (Optional)
+                    </label>
+                    <textarea id="milestoneDescription" name="description" rows="2" placeholder="Brief description of this milestone"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="totalQuestionsInMilestone">
+                            <i class="fas fa-calculator"></i>
+                            Number of Questions in This Milestone
+                        </label>
+                        <input type="number" id="totalQuestionsInMilestone" name="total_questions" min="1" placeholder="480" required>
+                        <small class="form-help">This milestone will cover the next N questions from your pages</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="milestoneAmount">
+                            <i class="fas fa-dollar-sign"></i>
+                            Payment Amount ($)
+                        </label>
+                        <input type="number" id="milestoneAmount" name="amount" min="0" step="0.01" placeholder="30.00" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="paymentStatus">
+                            <i class="fas fa-credit-card"></i>
+                            Payment Status
+                        </label>
+                        <select id="paymentStatus" name="payment_status" required>
+                            <option value="Pending">Pending</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Cancelled">Cancelled</option>
+                            <option value="Refunded">Refunded</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deadline">
+                            <i class="fas fa-calendar"></i>
+                            Deadline
+                        </label>
+                        <input type="date" id="deadline" name="deadline" required>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="saveBtn">
+                        <i class="fas fa-save"></i>
+                        Save Milestone
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Page Modal -->
+    <div class="modal" id="pageModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="pageModalTitle">Add New Page</h3>
+                <button class="modal-close" id="pageModalClose" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="pageForm" class="modal-form">
+                <input type="hidden" id="pageId" name="id">
+                
+                <div class="form-group">
+                    <label for="pageName">
+                        <i class="fas fa-heading"></i>
+                        Page Name
+                    </label>
+                    <input type="text" id="pageName" name="page_name" required placeholder="e.g., JEE Main 2022 Chemistry Paper">
+                </div>
+
+                <div class="form-group">
+                    <label for="pageLink">
+                        <i class="fas fa-link"></i>
+                        Page URL
+                    </label>
+                    <input type="url" id="pageLink" name="page_link" required placeholder="https://www.iitianacademy.com/...">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="totalQuestions">
+                            <i class="fas fa-list-ol"></i>
+                            Total Questions
+                        </label>
+                        <input type="number" id="totalQuestions" name="total_questions" min="1" required placeholder="30">
+                    </div>
+                    <div class="form-group">
+                        <label for="completedQuestions">
+                            <i class="fas fa-check-circle"></i>
+                            Completed Questions
+                        </label>
+                        <input type="number" id="completedQuestions" name="completed_questions" min="0" value="0" placeholder="0">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="subject">
+                            <i class="fas fa-book"></i>
+                            Subject
+                        </label>
+                        <select id="subject" name="subject" required>
+                            <option value="">Select Subject</option>
+                            <option value="Physics">Physics</option>
+                            <option value="Chemistry">Chemistry</option>
+                            <option value="Maths">Maths</option>
+                            <option value="AP Stats">AP Stats</option>
+                            <option value="Biology">Biology</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="year">
+                            <i class="fas fa-calendar"></i>
+                            Year
+                        </label>
+                        <input type="number" id="year" name="year" min="2000" max="2030" required placeholder="2022">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="pageStatus">
+                        <i class="fas fa-flag"></i>
+                        Status
+                    </label>
+                    <select id="pageStatus" name="status" required>
+                        <option value="Pending">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="pageCancelBtn">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="pageSaveBtn">
+                        <i class="fas fa-save"></i>
+                        Save Page
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/admin.js"></script>
+</body>
+</html>

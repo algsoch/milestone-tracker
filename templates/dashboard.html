@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IITian Academy - Milestone Tracker</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/styles.css" rel="stylesheet">
+    <!-- Libraries for Advanced Features -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/countup@2.0.7/dist/countUp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="light-mode">
+    <div class="container">
+        <!-- Modern Header with Hamburger -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <i class="fas fa-graduation-cap"></i>
+                    <div class="logo-text">
+                        <h1>IITian Academy</h1>
+                        <span class="subtitle">Milestone Tracker</span>
+                    </div>
+                </div>
+                
+                <!-- Hamburger Menu Button (Mobile) -->
+                <button class="hamburger-menu" id="headerHamburger" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                
+                <div class="header-controls" id="headerControls">
+                    <div class="login-status" id="loginStatus">
+                        <span class="status-indicator public">
+                            <i class="fas fa-eye"></i> <span class="status-text">Public View</span>
+                        </span>
+                        <span class="last-updated" id="lastUpdated">Last updated: Just now</span>
+                    </div>
+                    <button id="refreshBtn" class="btn btn-secondary">
+                        <i class="fas fa-sync-alt"></i> <span>Refresh</span>
+                    </button>
+                    <button id="adminToggle" class="btn btn-primary">
+                        <i class="fas fa-cog"></i> <span>Admin Panel</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Progress Tracking Section - Previous + Current Milestones -->
+        <section class="progress-tracking-section">
+            <h2 class="section-title">
+                <i class="fas fa-chart-line"></i> Milestone Progress Tracking
+            </h2>
+            
+            <div class="progress-cards-grid">
+                <!-- Previous Milestone Card -->
+                <div class="progress-milestone-card previous-milestone" id="previousMilestoneCard" style="display: none;">
+                    <div class="milestone-card-header">
+                        <h3>
+                            <i class="fas fa-check-circle"></i>
+                            <span id="prevMilestoneName">Previous Milestone</span>
+                        </h3>
+                        <span class="milestone-badge completed">Completed</span>
+                    </div>
+                    <div class="milestone-card-body">
+                        <div class="milestone-stat-row">
+                            <div class="milestone-stat">
+                                <span class="stat-label">Questions</span>
+                                <span class="stat-value" id="prevMilestoneQuestions">0 / 0</span>
+                            </div>
+                            <div class="milestone-stat">
+                                <span class="stat-label">Amount</span>
+                                <span class="stat-value" id="prevMilestoneAmount">$0</span>
+                            </div>
+                            <div class="milestone-stat">
+                                <span class="stat-label">Status</span>
+                                <span class="payment-status-badge" id="prevMilestonePayment">Paid</span>
+                            </div>
+                        </div>
+                        <div class="milestone-progress-bar">
+                            <div class="milestone-progress-fill previous-fill" id="prevMilestoneProgress" style="width: 100%"></div>
+                        </div>
+                        <p class="milestone-range" id="prevMilestoneRange">Questions 1-480</p>
+                    </div>
+                </div>
+
+                <!-- Current Milestone Card -->
+                <div class="progress-milestone-card current-milestone">
+                    <div class="milestone-card-header">
+                        <h3>
+                            <i class="fas fa-flag"></i>
+                            <span id="currentMilestoneName">Current Milestone</span>
+                        </h3>
+                        <span class="milestone-badge active" id="currentMilestoneBadge">In Progress</span>
+                    </div>
+                    <div class="milestone-card-body">
+                        <div class="milestone-stat-row">
+                            <div class="milestone-stat">
+                                <span class="stat-label">Questions</span>
+                                <span class="stat-value" id="currentMilestoneQuestions">0 / 0</span>
+                            </div>
+                            <div class="milestone-stat">
+                                <span class="stat-label">Amount</span>
+                                <span class="stat-value" id="currentMilestoneAmount">$0</span>
+                            </div>
+                            <div class="milestone-stat">
+                                <span class="stat-label">Deadline</span>
+                                <span class="stat-value deadline-value" id="currentMilestoneDeadline">-</span>
+                            </div>
+                        </div>
+                        <div class="milestone-progress-bar">
+                            <div class="milestone-progress-fill current-fill" id="currentMilestoneProgress" style="width: 0%"></div>
+                        </div>
+                        <p class="milestone-range" id="currentMilestoneRange">Questions 481-960</p>
+                        <p class="milestone-percentage" id="currentMilestonePercentage">0% Complete</p>
+                    </div>
+                </div>
+
+                <!-- Overall Progress Card -->
+                <div class="progress-milestone-card overall-progress">
+                    <div class="milestone-card-header">
+                        <h3>
+                            <i class="fas fa-tasks"></i>
+                            Overall Project Progress
+                        </h3>
+                    </div>
+                    <div class="milestone-card-body">
+                        <div class="milestone-stat-row">
+                            <div class="milestone-stat">
+                                <span class="stat-label">Completed</span>
+                                <span class="stat-value" id="overallCompleted">0</span>
+                            </div>
+                            <div class="milestone-stat">
+                                <span class="stat-label">Total</span>
+                                <span class="stat-value" id="overallTotal">0</span>
+                            </div>
+                            <div class="milestone-stat">
+                                <span class="stat-label">Remaining</span>
+                                <span class="stat-value" id="overallRemaining">0</span>
+                            </div>
+                        </div>
+                        <div class="milestone-progress-bar">
+                            <div class="milestone-progress-fill overall-fill" id="overallProgress" style="width: 0%"></div>
+                        </div>
+                        <p class="milestone-percentage" id="overallPercentage">0% Complete</p>
+                        <p class="milestone-info" id="overallInfo">Keep up the great work!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visual Progress Timeline -->
+        <section class="timeline-section">
+            <h2 class="section-title">
+                <i class="fas fa-map-signs"></i> Milestone Timeline
+            </h2>
+            <div class="timeline-container" id="milestoneTimeline">
+                <!-- Timeline populated by JS -->
+            </div>
+        </section>
+
+        <!-- Quick Stats Cards -->
+        <section class="quick-stats-section">
+            <h2 class="section-title">
+                <i class="fas fa-tachometer-alt"></i> Quick Insights
+            </h2>
+            <div class="quick-stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon gradient-purple">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h4>Avg Questions/Page</h4>
+                        <p class="stat-number" id="avgQuestionsPerPage">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon gradient-pink">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h4>Most Productive Subject</h4>
+                        <p class="stat-number" id="topSubject">-</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon gradient-blue">
+                        <i class="fas fa-percent"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h4>Completion Rate</h4>
+                        <p class="stat-number" id="completionRate">0%</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon gradient-green">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h4>Est. Completion</h4>
+                        <p class="stat-number" id="estimatedCompletion">-</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <h2 class="section-title">
+                <i class="fas fa-chart-bar"></i> Data Visualizations
+            </h2>
+            <div class="chart-container">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-pie"></i> Completion by Milestone</h3>
+                    <canvas id="milestoneChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-bar"></i> Questions by Subject</h3>
+                    <canvas id="subjectChart"></canvas>
+                </div>
+                <div class="chart-card full-width">
+                    <h3><i class="fas fa-chart-line"></i> Progress Over Time</h3>
+                    <canvas id="progressLineChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Old admin panel removed - use /admin page instead -->
+
+        <!-- Pages Table Section with Milestone Indicators -->
+        <section class="pages-section">
+            <div class="table-card">
+                <div class="table-header">
+                    <h3><i class="fas fa-table"></i> Question Pages Progress</h3>
+                    <div class="table-controls">
+                        <div class="control-group">
+                            <label for="milestoneFilter" class="control-label">
+                                <i class="fas fa-filter"></i> Filter by Milestone:
+                            </label>
+                            <select class="filter-select" id="milestoneFilter" title="Filter by milestone">
+                                <option value="all">All Milestones (Combined)</option>
+                                <!-- Milestones populated by JS -->
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label for="statusFilter" class="control-label">Status:</label>
+                            <select class="filter-select" id="statusFilter" title="Filter by status">
+                                <option value="">All Status</option>
+                                <option value="Pending">Pending</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                        <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search pages...">
+                    </div>
+                </div>
+                
+                <!-- Milestone Stats Summary -->
+                <div class="milestone-stats-summary" id="milestoneStatsSummary">
+                    <div class="stats-row">
+                        <div class="stat-box">
+                            <i class="fas fa-tasks"></i>
+                            <div>
+                                <span class="stat-number" id="filterTotalPages">0</span>
+                                <span class="stat-label">Pages</span>
+                            </div>
+                        </div>
+                        <div class="stat-box">
+                            <i class="fas fa-question-circle"></i>
+                            <div>
+                                <span class="stat-number" id="filterTotalQuestions">0</span>
+                                <span class="stat-label">Total Questions</span>
+                            </div>
+                        </div>
+                        <div class="stat-box">
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <span class="stat-number" id="filterCompletedQuestions">0</span>
+                                <span class="stat-label">Completed</span>
+                            </div>
+                        </div>
+                        <div class="stat-box">
+                            <i class="fas fa-chart-pie"></i>
+                            <div>
+                                <span class="stat-number" id="filterProgressPercent">0%</span>
+                                <span class="stat-label">Progress</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="pages-table-container">
+                    <table class="pages-table" id="pagesTable">
+                        <thead>
+                            <tr>
+                                <th>S.NO.</th>
+                                <th>Milestone</th>
+                                <th>PAGE NAME</th>
+                                <th>PAGE LINK</th>
+                                <th>TOTAL</th>
+                                <th>Completed</th>
+                                <th>Remaining</th>
+                                <th>Cumulative Sum</th>
+                                <th>Subject</th>
+                                <th>Year</th>
+                                <th class="admin-only">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pagesTableBody">
+                            <tr class="loading-row">
+                                <td colspan="11" class="text-center">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading pages...
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="pagesTableFooter">
+                            <!-- Totals row will be added by JavaScript -->
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Insights - Enhanced -->
+        <section class="insights-section">
+            <div class="insights-card">
+                <h3><i class="fas fa-chart-line"></i> Advanced Performance Analytics</h3>
+                <div class="insights-grid">
+                    <div class="insight-item">
+                        <div class="insight-icon purple">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <div class="insight-text">
+                            <div class="insight-label">Daily Average</div>
+                            <div class="insight-value" id="dailyAverage">0 questions/day</div>
+                            <div class="insight-subtext" id="dailyTrend">-</div>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-icon blue">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <div class="insight-text">
+                            <div class="insight-label">Estimated Completion</div>
+                            <div class="insight-value" id="estimatedCompletionDate">-</div>
+                            <div class="insight-subtext" id="daysRemaining">-</div>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-icon green">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="insight-text">
+                            <div class="insight-label">Performance Trend</div>
+                            <div class="insight-value" id="performanceTrend">Calculating...</div>
+                            <div class="insight-subtext" id="trendDetails">-</div>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-icon orange">
+                            <i class="fas fa-bullseye"></i>
+                        </div>
+                        <div class="insight-text">
+                            <div class="insight-label">Productivity Score</div>
+                            <div class="insight-value" id="productivityScore">-</div>
+                            <div class="insight-subtext" id="scoreBreakdown">-</div>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-icon red">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                        <div class="insight-text">
+                            <div class="insight-label">Current Streak</div>
+                            <div class="insight-value" id="currentStreak">0 days</div>
+                            <div class="insight-subtext" id="streakMessage">-</div>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-icon teal">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div class="insight-text">
+                            <div class="insight-label">Best Day</div>
+                            <div class="insight-value" id="bestDay">-</div>
+                            <div class="insight-subtext" id="bestDayQuestions">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="recommendation" id="recommendation">
+                    <i class="fas fa-lightbulb"></i>
+                    <span id="recommendationText">Loading insights...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pivot Table Section - Enhanced -->
+        <section class="pivot-section">
+            <div class="pivot-card">
+                <div class="pivot-header">
+                    <h3><i class="fas fa-table"></i> Summary Pivot Table</h3>
+                    <div class="pivot-controls">
+                        <label for="pivotGroupBy">Group By:</label>
+                        <select id="pivotGroupBy" class="filter-select">
+                            <option value="year">Group by Year</option>
+                            <option value="subject">Group by Subject</option>
+                            <option value="milestone">Group by Milestone</option>
+                            <option value="status">Group by Status</option>
+                        </select>
+                        <button id="generatePivot" class="btn btn-primary">
+                            <i class="fas fa-sync"></i> Generate
+                        </button>
+                        <button id="exportPivot" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="pivot-table-container">
+                    <table class="pivot-table" id="pivotTable">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Total Pages</th>
+                                <th>Total Questions</th>
+                                <th>Completed</th>
+                                <th>Remaining</th>
+                                <th>Progress %</th>
+                                <th>Status Breakdown</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pivotTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center">Click Generate to create pivot table</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <p>&copy; 2025 IITian Academy Milestone Tracker</p>
+                    <p>Last backup: <span id="lastBackup">Never</span></p>
+                </div>
+                <div class="footer-right">
+                    <p>Auto-refresh: <span id="autoRefreshStatus">ON</span></p>
+                    <p>Next refresh in: <span id="refreshCountdown">120000s</span></p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Add Milestone Modal -->
+    <div class="modal" id="milestoneModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="milestoneModalTitle">Add New Milestone</h3>
+                <button class="close-btn" id="closeMilestoneModal">&times;</button>
+            </div>
+            <form id="milestoneForm">
+                <input type="hidden" id="milestoneId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="milestoneName">Milestone Name:</label>
+                        <input type="text" id="milestoneName" required maxlength="200">
+                    </div>
+                    <div class="form-group">
+                        <label for="milestoneAmount">Amount ($):</label>
+                        <input type="number" id="milestoneAmount" min="0" step="0.01" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="milestoneQuestions">Total Questions:</label>
+                        <input type="number" id="milestoneQuestions" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="milestoneDeadline">Deadline:</label>
+                        <input type="datetime-local" id="milestoneDeadline" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="milestonePaymentStatus">Payment Status:</label>
+                    <select id="milestonePaymentStatus" class="form-select">
+                        <option value="Pending">Pending</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="Refunded">Refunded</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelMilestone">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveMilestone">Save Milestone</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Update Progress Modal -->
+    <div class="modal" id="updateModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Update Progress</h3>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <form id="updateForm">
+                <input type="hidden" id="updatePageId">
+                <div class="form-group">
+                    <label>Page Name:</label>
+                    <div id="updatePageName" class="form-display"></div>
+                </div>
+                <div class="form-group">
+                    <label for="updateCompleted">Completed Questions:</label>
+                    <input type="number" id="updateCompleted" min="0" required>
+                    <small>Total: <span id="updateTotal">0</span> questions</small>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelUpdate">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Progress</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Floating Action Button Menu -->
+    <div class="fab-container">
+        <button class="fab-button" id="fabMain" title="Quick Actions">
+            <i class="fas fa-plus"></i>
+        </button>
+        <div class="fab-menu" id="fabMenu">
+            <button class="fab-option" id="darkModeToggle" title="Toggle Dark Mode">
+                <i class="fas fa-moon"></i>
+                <span>Dark Mode</span>
+            </button>
+            <button class="fab-option" id="exportBtn" title="Export Data">
+                <i class="fas fa-download"></i>
+                <span>Export</span>
+            </button>
+            <button class="fab-option" id="scrollToTop" title="Scroll to Top">
+                <i class="fas fa-arrow-up"></i>
+                <span>To Top</span>
+            </button>
+            <button class="fab-option" id="shareBtn" title="Share Progress">
+                <i class="fas fa-share-alt"></i>
+                <span>Share</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-download"></i> Export Data</h3>
+                <button class="close-btn" id="closeExportModal">&times;</button>
+            </div>
+            <div class="export-options">
+                <button class="export-option-btn" id="exportCSV">
+                    <i class="fas fa-file-csv"></i>
+                    <span>Export as CSV</span>
+                    <small>Spreadsheet format</small>
+                </button>
+                <button class="export-option-btn" id="exportExcel">
+                    <i class="fas fa-file-excel"></i>
+                    <span>Export as Excel</span>
+                    <small>Microsoft Excel format</small>
+                </button>
+                <button class="export-option-btn" id="exportPDF">
+                    <i class="fas fa-file-pdf"></i>
+                    <span>Export as PDF</span>
+                    <small>Progress report</small>
+                </button>
+                <button class="export-option-btn" id="exportJSON">
+                    <i class="fas fa-file-code"></i>
+                    <span>Export as JSON</span>
+                    <small>Raw data format</small>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: iitian-academy-milestone-tracker
+    env: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: milestone_tracker
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: APP_NAME
+        value: IITian Academy Milestone Tracker
+      - key: APP_VERSION
+        value: 1.0.0
+      - key: DEBUG
+        value: false
+      - key: BACKUP_ENABLED
+        value: true
+      - key: BACKUP_INTERVAL_HOURS
+        value: 24
+      - key: PORT
+        value: 8000
+    healthCheckPath: /health
+    autoDeploy: true

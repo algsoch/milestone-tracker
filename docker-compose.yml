@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  milestone-tracker:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - DATABASE_NAME=${DATABASE_NAME:-tracker_db}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - PORT=8000
+      - HOST=0.0.0.0
+      - PROJECT_NAME=IITian Academy Question Tracker
+      - MILESTONE_DEADLINE=${MILESTONE_DEADLINE:-2025-10-17}
+      - MILESTONE_CREATED=${MILESTONE_CREATED:-2025-10-13}
+      - TOTAL_QUESTIONS=${TOTAL_QUESTIONS:-480}
+      - MILESTONE_AMOUNT=${MILESTONE_AMOUNT:-30}
+    volumes:
+      - ./backups:/app/backups
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
