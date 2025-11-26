@@ -223,7 +223,20 @@
                     <canvas id="subjectChart"></canvas>
                 </div>
                 <div class="chart-card full-width">
-                    <h3><i class="fas fa-chart-line"></i> Progress Over Time</h3>
+                    <h3><i class="fas fa-chart-line"></i> Progress Over Time by Milestone</h3>
+                    <div class="chart-controls">
+                        <select id="progressTimeRange" class="filter-select" title="Select time range">
+                            <option value="7">Last 7 Days</option>
+                            <option value="14">Last 14 Days</option>
+                            <option value="30" selected>Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                            <option value="all">All Time</option>
+                        </select>
+                    </div>
+                    <canvas id="progressTimelineChart"></canvas>
+                </div>
+                <div class="chart-card full-width">
+                    <h3><i class="fas fa-chart-area"></i> Cumulative Progress by Milestone</h3>
                     <canvas id="progressLineChart"></canvas>
                 </div>
             </div>

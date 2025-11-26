@@ -14,7 +14,8 @@ class MilestoneTracker {
             status: null,
             milestone: null,
             subject: null,
-            timeline: null
+            timeline: null,
+            progressTimeline: null
         };
         this.isAdminMode = false;
         this.isAdminLoggedIn = false;
@@ -676,55 +677,85 @@ class MilestoneTracker {
         tbody.innerHTML = displayPages.map((page, displayIndex) => {
             const completed = page.completed_questions || 0;
             const remaining = (page.total_questions || 0) - completed;
-            const pageName = page.page_name || this.extractPageNameFromUrl(page.page_link) || 'Untitled Page';
+            const pageName = this.getPageDisplayName(page);
             const milestoneColor = page.milestoneIndex >= 0 ? this.milestoneColors[page.milestoneIndex % this.milestoneColors.length] : '#9E9E9E';
             const milestoneBadge = page.milestoneIndex >= 0 ? `M${page.milestoneIndex + 1}` : 'N/A';
             const backgroundColor = page.milestoneIndex >= 0 ? `${milestoneColor}15` : 'transparent';
             
-            // Check if this cumulative marks a milestone completion (480, 960, etc.)
-            const isMilestoneComplete = page.milestone && page.cumulative === (page.milestone.question_range_end || page.milestone.end_question);
-            const milestoneProgress = page.milestone ? 
-                Math.round((page.milestone.completed_questions / page.milestone.total_questions) * 100) : 0;
+            // Check if this page crosses ANY milestone boundary (not just the assigned one)
+            // This handles pages that span across milestone ends (e.g., pageStart=945, pageEnd=984 crosses 960)
+            let crossedMilestones = [];
+            if (this.data.milestones && this.data.milestones.length > 0) {
+                for (let i = 0; i < this.data.milestones.length; i++) {
+                    const m = this.data.milestones[i];
+                    const msEnd = m.question_range_end || m.end_question || 0;
+                    // Page crosses this milestone if pageStart <= msEnd <= pageEnd
+                    if (page.pageStart <= msEnd && page.pageEnd >= msEnd) {
+                        const progress = Math.round((m.completed_questions / m.total_questions) * 100);
+                        crossedMilestones.push({
+                            index: i,
+                            milestone: m,
+                            progress: progress,
+                            isComplete: progress === 100
+                        });
+                    }
+                }
+            }
             
             // Special styling for milestone completion row
             let rowClass = '';
             let milestoneIndicator = '';
             let cumulativeCellContent = `<strong>${page.cumulative}</strong>`;
             
-            if (isMilestoneComplete) {
+            if (crossedMilestones.length > 0) {
                 rowClass = 'milestone-complete-row';
-                const isFullyCompleted = milestoneProgress === 100;
                 
-                if (isFullyCompleted) {
-                    milestoneIndicator = `
-                        <div class="milestone-achievement">
-                            <span class="achievement-badge pulse">
-                                <i class="fas fa-trophy"></i> Milestone ${page.milestoneIndex + 1} Complete!
-                            </span>
-                            <span class="achievement-stars">✨🎉✨</span>
-                        </div>
-                    `;
+                // Build indicators for ALL crossed milestones
+                let indicators = [];
+                let cumulativeMarkers = [];
+                
+                for (const cm of crossedMilestones) {
+                    if (cm.isComplete) {
+                        indicators.push(`
+                            <div class="milestone-achievement">
+                                <span class="achievement-badge pulse">
+                                    <i class="fas fa-trophy"></i> Milestone ${cm.index + 1} Complete!
+                                </span>
+                                <span class="achievement-stars">✨🎉✨</span>
+                            </div>
+                        `);
+                        cumulativeMarkers.push(`🎯 M${cm.index + 1} Target Reached!`);
+                    } else {
+                        indicators.push(`
+                            <div class="milestone-achievement partial">
+                                <span class="achievement-badge">
+                                    <i class="fas fa-flag-checkered"></i> Milestone ${cm.index + 1} Boundary
+                                </span>
+                                <span class="achievement-progress">${cm.progress}% Complete</span>
+                            </div>
+                        `);
+                        cumulativeMarkers.push(`🎯 M${cm.index + 1} (${cm.progress}%)`);
+                    }
+                }
+                
+                milestoneIndicator = indicators.join('');
+                
+                // Use the first crossed milestone's style for cumulative cell
+                const firstCrossed = crossedMilestones[0];
+                if (firstCrossed.isComplete) {
                     cumulativeCellContent = `
                         <div class="cumulative-milestone-marker completed">
                             <div class="marker-icon"><i class="fas fa-check-circle"></i></div>
                             <strong>${page.cumulative}</strong>
-                            <div class="marker-label">🎯 Target Reached!</div>
+                            <div class="marker-label">${cumulativeMarkers.join(' ')}</div>
                         </div>
                     `;
                 } else {
-                    milestoneIndicator = `
-                        <div class="milestone-achievement partial">
-                            <span class="achievement-badge">
-                                <i class="fas fa-flag-checkered"></i> Milestone ${page.milestoneIndex + 1} Boundary
-                            </span>
-                            <span class="achievement-progress">${milestoneProgress}% Complete</span>
-                        </div>
-                    `;
                     cumulativeCellContent = `
                         <div class="cumulative-milestone-marker partial">
                             <div class="marker-icon"><i class="fas fa-flag"></i></div>
                             <strong>${page.cumulative}</strong>
-                            <div class="marker-label">🎯 Milestone ${page.milestoneIndex + 1}</div>
+                            <div class="marker-label">${cumulativeMarkers.join(' ')}</div>
                         </div>
                     `;
                 }
@@ -927,9 +958,21 @@ class MilestoneTracker {
         
         // Overall totals row (summary of everything)
         const totalCompleted = displayPages.reduce((sum, p) => sum + (p.completed_questions || 0), 0);
-        const totalRemaining = totalQuestionsFromPages - totalCompleted;
+        
+        // Calculate total milestone questions (from milestone definitions, not pages)
+        // This is the actual target set by the client (e.g., 480 × 3 = 1440)
+        const totalMilestoneQuestions = this.data.milestones && this.data.milestones.length > 0
+            ? this.data.milestones.reduce((sum, m) => {
+                const rangeStart = m.question_range_start || m.start_question || 0;
+                const rangeEnd = m.question_range_end || m.end_question || 0;
+                return sum + (rangeEnd - rangeStart + 1);
+            }, 0)
+            : totalQuestionsFromPages;
+        
+        // Use milestone total for remaining and progress (shows actual target progress)
+        const totalRemaining = totalMilestoneQuestions - totalCompleted;
         const finalCumulative = displayPages[displayPages.length - 1]?.cumulative || 0;
-        const overallProgress = totalQuestionsFromPages > 0 ? Math.round((totalCompleted / totalQuestionsFromPages) * 100) : 0;
+        const overallProgress = totalMilestoneQuestions > 0 ? Math.round((totalCompleted / totalMilestoneQuestions) * 100) : 0;
         
         let overallColor = '#e74c3c';
         if (overallProgress === 100) overallColor = '#27ae60';
@@ -944,7 +987,7 @@ class MilestoneTracker {
                     <td colspan="2" class="totals-title">
                         <div class="title-section">
                             <div class="main-title"><i class="fas fa-calculator"></i> <strong>OVERALL TOTALS</strong></div>
-                            <div class="overall-subtitle">All Milestones Combined</div>
+                            <div class="overall-subtitle">All Milestones Combined (${totalMilestoneQuestions} Target)</div>
                         </div>
                     </td>
                     <td colspan="2" class="progress-col">
@@ -957,12 +1000,12 @@ class MilestoneTracker {
                             </div>
                         </div>
                     </td>
-                    <td class="stat-total"><i class="fas fa-list"></i> <strong>${totalQuestionsFromPages}</strong></td>
+                    <td class="stat-total"><i class="fas fa-list"></i> <strong>${totalMilestoneQuestions}</strong></td>
                     <td class="stat-completed" style="color: ${overallColor};"><i class="fas fa-check"></i> <strong>${totalCompleted}</strong></td>
                     <td class="stat-remaining" style="color: #e74c3c;"><i class="fas fa-clock"></i> <strong>${totalRemaining}</strong></td>
                     <td class="stat-cumulative"><i class="fas fa-layer-group"></i> <strong>${finalCumulative}</strong></td>
                     <td colspan="3" class="stats-summary">
-                        <small><i class="fas fa-check-circle"></i> ${totalCompleted}/${totalQuestionsFromPages} • ${overallProgress}%</small>
+                        <small><i class="fas fa-check-circle"></i> ${totalCompleted}/${totalMilestoneQuestions} • ${overallProgress}%</small>
                     </td>
                 </tr>
             `;
@@ -1788,6 +1831,24 @@ class MilestoneTracker {
         return null;
     }
 
+    // Get display name for a page - extract from URL if page_name looks like a URL
+    getPageDisplayName(page) {
+        let name = page.page_name;
+        
+        // Check if page_name looks like a URL (starts with http or contains iitianacademy.com)
+        if (name && (name.startsWith('http') || name.includes('iitianacademy.com') || name.includes('...'))) {
+            // Try to extract from page_link first
+            if (page.page_link) {
+                name = this.extractPageNameFromUrl(page.page_link);
+            } else {
+                // Extract from the page_name itself (which is a URL)
+                name = this.extractPageNameFromUrl(name);
+            }
+        }
+        
+        return name || this.extractPageNameFromUrl(page.page_link) || 'Untitled Page';
+    }
+
     truncateUrl(url) {
         if (!url) return '';
         if (url.length <= 50) return url;
@@ -2121,6 +2182,213 @@ class MilestoneTracker {
         this.renderMilestoneChart();
         this.renderSubjectChart();
         this.renderProgressLineChart();
+        this.renderProgressTimelineChart();
+        this.setupTimeRangeSelector();
+    }
+
+    setupTimeRangeSelector() {
+        const timeRangeSelect = document.getElementById('progressTimeRange');
+        if (timeRangeSelect) {
+            timeRangeSelect.addEventListener('change', () => {
+                this.renderProgressTimelineChart();
+            });
+        }
+    }
+
+    renderProgressTimelineChart() {
+        const ctx = document.getElementById('progressTimelineChart');
+        if (!ctx || !this.data.pages || !this.data.milestones) return;
+
+        if (this.charts.progressTimeline) {
+            this.charts.progressTimeline.destroy();
+        }
+
+        // Get time range
+        const timeRangeSelect = document.getElementById('progressTimeRange');
+        const daysRange = timeRangeSelect ? timeRangeSelect.value : '30';
+        
+        // Get pages sorted by updated_at date
+        const sortedPages = [...this.data.pages].sort((a, b) => 
+            new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at)
+        );
+
+        // Filter by time range
+        let filteredPages = sortedPages;
+        if (daysRange !== 'all') {
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - parseInt(daysRange));
+            filteredPages = sortedPages.filter(p => 
+                new Date(p.updated_at || p.created_at) >= cutoffDate
+            );
+        }
+
+        // Group pages by date and calculate cumulative progress per milestone
+        const dateProgressMap = new Map();
+        let cumulativeByMilestone = {};
+        
+        // Initialize milestone trackers
+        this.data.milestones.forEach((m, i) => {
+            cumulativeByMilestone[`M${i + 1}`] = 0;
+        });
+
+        // Calculate cumulative questions to assign each page to a milestone
+        let totalCumulative = 0;
+        sortedPages.forEach(page => {
+            const pageTotal = page.total_questions || 0;
+            const pageStart = totalCumulative + 1;
+            totalCumulative += pageTotal;
+            const pageEnd = totalCumulative;
+
+            // Find which milestone this page belongs to
+            let milestoneIndex = -1;
+            for (let i = 0; i < this.data.milestones.length; i++) {
+                const m = this.data.milestones[i];
+                const msStart = m.question_range_start || 1;
+                const msEnd = m.question_range_end || m.end_question || 0;
+                if (pageEnd >= msStart && pageEnd <= msEnd) {
+                    milestoneIndex = i;
+                    break;
+                }
+                // If page is beyond all milestones, assign to last one
+                if (i === this.data.milestones.length - 1 && pageEnd > msEnd) {
+                    milestoneIndex = i;
+                }
+            }
+
+            // Get date (just the date part, not time)
+            const dateStr = new Date(page.updated_at || page.created_at).toISOString().split('T')[0];
+            
+            if (!dateProgressMap.has(dateStr)) {
+                dateProgressMap.set(dateStr, {...cumulativeByMilestone});
+            }
+            
+            // Add completed questions to the appropriate milestone
+            if (milestoneIndex >= 0) {
+                const msKey = `M${milestoneIndex + 1}`;
+                cumulativeByMilestone[msKey] += page.completed_questions || 0;
+                dateProgressMap.set(dateStr, {...cumulativeByMilestone});
+            }
+        });
+
+        // Convert to arrays for Chart.js
+        const sortedDates = Array.from(dateProgressMap.keys()).sort();
+        
+        // Filter dates by time range for display
+        let displayDates = sortedDates;
+        if (daysRange !== 'all') {
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - parseInt(daysRange));
+            const cutoffStr = cutoffDate.toISOString().split('T')[0];
+            displayDates = sortedDates.filter(d => d >= cutoffStr);
+        }
+
+        // If no data in range, show message
+        if (displayDates.length === 0) {
+            displayDates = [new Date().toISOString().split('T')[0]];
+            dateProgressMap.set(displayDates[0], {...cumulativeByMilestone});
+        }
+
+        // Create datasets for each milestone
+        const datasets = this.data.milestones.map((m, i) => {
+            const msKey = `M${i + 1}`;
+            const color = this.milestoneColors[i % this.milestoneColors.length];
+            
+            // Get cumulative values for each date
+            let runningTotal = 0;
+            const data = displayDates.map(date => {
+                const dayData = dateProgressMap.get(date);
+                if (dayData && dayData[msKey] !== undefined) {
+                    runningTotal = dayData[msKey];
+                }
+                return runningTotal;
+            });
+
+            return {
+                label: `${m.title || `Milestone ${i + 1}`}`,
+                data: data,
+                borderColor: color,
+                backgroundColor: color + '20',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                borderWidth: 2
+            };
+        });
+
+        // Format dates for display
+        const labels = displayDates.map(d => {
+            const date = new Date(d);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+
+        this.charts.progressTimeline = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        padding: 12,
+                        displayColors: true,
+                        callbacks: {
+                            title: (items) => {
+                                return `📅 ${items[0].label}`;
+                            },
+                            label: (context) => {
+                                const milestone = this.data.milestones[context.datasetIndex];
+                                const total = milestone ? milestone.total_questions : 0;
+                                const completed = context.raw;
+                                const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+                                return ` ${context.dataset.label}: ${completed}/${total} (${percent}%)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Date',
+                            font: { weight: 'bold' }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Questions Completed',
+                            font: { weight: 'bold' }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    }
+                }
+            }
+        });
     }
 
     renderMilestoneChart() {

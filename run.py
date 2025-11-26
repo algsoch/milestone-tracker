@@ -7,12 +7,16 @@ import os
 import sys
 import uvicorn
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
 
 # Add the project root to Python path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# Set default environment variables
+# Set default environment variables (only if not already set)
 os.environ.setdefault("MONGODB_URI", "mock")
 os.environ.setdefault("ADMIN_API_KEY", "admin-key-123")
 os.environ.setdefault("DATABASE_NAME", "tracker_db")

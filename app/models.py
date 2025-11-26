@@ -120,13 +120,13 @@ class PageModel(BaseModel):
         """Extract year from URL or page name"""
         if self.page_link:
             url_str = str(self.page_link)
-            # Look for 4-digit years (2015-2030)
-            year_match = re.search(r'(20[1-3][0-9])', url_str)
+            # Look for 4-digit years (1990-2099)
+            year_match = re.search(r'(19[9][0-9]|20[0-9][0-9])', url_str)
             if year_match:
                 return year_match.group(1)
         
         # Extract from page name
-        year_match = re.search(r'(20[1-3][0-9])', self.page_name)
+        year_match = re.search(r'(19[9][0-9]|20[0-9][0-9])', self.page_name)
         if year_match:
             return year_match.group(1)
         

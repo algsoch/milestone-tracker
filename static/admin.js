@@ -154,9 +154,10 @@ class AdminPanel {
         document.getElementById('adminLoginSection').style.display = 'none';
         document.getElementById('adminDashboardSection').style.display = 'block';
         
-        // Load all data
-        this.loadMilestones();
-        this.loadQuestionPages();
+        // Load milestones first, then pages (pages need milestone data for assignment)
+        this.loadMilestones().then(() => {
+            this.loadQuestionPages();
+        });
         this.loadProgressData();
     }
 
@@ -195,7 +196,7 @@ class AdminPanel {
     }
 
     populateMilestoneFilter() {
-        const filterSelect = document.getElementById('milestoneFilter');
+        const filterSelect = document.getElementById('globalMilestoneFilter');
         if (!filterSelect) return;
 
         // Clear existing options except "All"
@@ -216,7 +217,7 @@ class AdminPanel {
     }
 
     handleMilestoneFilterChange() {
-        const filterSelect = document.getElementById('milestoneFilter');
+        const filterSelect = document.getElementById('globalMilestoneFilter');
         const selectedMilestoneId = filterSelect.value;
 
         if (selectedMilestoneId === 'all') {
@@ -257,15 +258,9 @@ class AdminPanel {
     }
 
     async loadQuestionPages() {
-        if (!this.token) return;
-
         try {
             console.log('Loading question pages...');
-            const response = await fetch('/api/pages', {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
+            const response = await fetch('/api/pages');
 
             if (response.ok) {
                 const data = await response.json();
@@ -311,103 +306,182 @@ class AdminPanel {
 
     renderPagesTable(pages) {
         const tbody = document.getElementById('pagesTableBody');
+        const tfoot = document.getElementById('pagesTableFooter');
         if (!tbody) return;
 
         if (!pages || pages.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="no-data">
+                    <td colspan="12" class="no-data">
                         <i class="fas fa-inbox"></i>
                         <p>No question pages found.</p>
                     </td>
                 </tr>
             `;
+            if (tfoot) tfoot.innerHTML = '';
+            this.updateAdminStats([], 0, 0);
             return;
         }
 
-        // Calculate cumulative questions to determine milestone
+        // Populate filter dropdowns
+        this.populateFilterDropdowns(pages);
+
+        // Calculate cumulative questions and assign milestones
         let cumulativeQuestions = 0;
-        
-        tbody.innerHTML = pages.map((page, index) => {
-            const completedQuestions = page.completed_questions || page.completed || 0;
+        const pagesWithData = pages.map((page, index) => {
             const totalQuestions = page.total_questions || 0;
-            const remainingQuestions = page.remaining_questions || (totalQuestions - completedQuestions);
-            const progressPercentage = page.progress_percentage || (totalQuestions > 0 ? (completedQuestions / totalQuestions) * 100 : 0);
-            
-            // Determine which milestone this page belongs to
-            const questionEnd = cumulativeQuestions + totalQuestions;
-            let milestoneNumber = 1;
-            let milestoneColor = '#4a90e2';
-            let milestoneBadge = 'M1';
-            
+            const completedQuestions = page.completed_questions || 0;
+            const pageStart = cumulativeQuestions + 1;
+            cumulativeQuestions += totalQuestions;
+            const pageEnd = cumulativeQuestions;
+
+            // Find which milestone this page belongs to
+            let milestoneIndex = -1;
+            let milestone = null;
+            const milestoneColors = ['#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#9C27B0', '#00BCD4'];
+
             if (this.milestones && this.milestones.length > 0) {
-                for (const milestone of this.milestones) {
-                    const mStart = milestone.start_question || 0;
-                    const mEnd = milestone.end_question || 0;
-                    
-                    // Check if this page falls within the milestone range
-                    if (cumulativeQuestions < mEnd && questionEnd > mStart) {
-                        milestoneNumber = this.milestones.indexOf(milestone) + 1;
-                        milestoneBadge = `M${milestoneNumber}`;
-                        
-                        // Assign different colors to different milestones
-                        const colors = ['#4a90e2', '#28a745', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14'];
-                        milestoneColor = colors[(milestoneNumber - 1) % colors.length];
+                // First try to find exact milestone range
+                for (let i = 0; i < this.milestones.length; i++) {
+                    const m = this.milestones[i];
+                    const msStart = m.question_range_start || m.start_question || 1;
+                    const msEnd = m.question_range_end || m.end_question || 0;
+                    if (pageEnd >= msStart && pageEnd <= msEnd) {
+                        milestoneIndex = i;
+                        milestone = m;
                         break;
                     }
                 }
-            }
-            
-            cumulativeQuestions = questionEnd;
-            
-            let status = 'pending';
-            let statusClass = 'pending';
-            
-            if (page.status) {
-                // Use the actual status from the page
-                status = page.status.toLowerCase();
-                if (status === 'completed') statusClass = 'completed';
-                else if (status === 'in progress' || completedQuestions > 0) statusClass = 'partial';
-                else statusClass = 'pending';
-            } else {
-                // Fallback logic
-                if (completedQuestions === totalQuestions && totalQuestions > 0) {
-                    status = 'completed';
-                    statusClass = 'completed';
-                } else if (completedQuestions > 0) {
-                    status = 'partial';
-                    statusClass = 'partial';
+                
+                // If no milestone found and page is beyond last milestone, assign to last milestone
+                if (milestoneIndex === -1) {
+                    const lastMilestone = this.milestones[this.milestones.length - 1];
+                    const lastMsEnd = lastMilestone.question_range_end || lastMilestone.end_question || 0;
+                    if (pageEnd > lastMsEnd) {
+                        // Page is beyond all milestones - assign to "current" (last) milestone
+                        milestoneIndex = this.milestones.length - 1;
+                        milestone = lastMilestone;
+                    }
                 }
             }
 
-            const pageId = page._id || page.id || index;
+            // Check if this page crosses a milestone boundary
+            let crossedMilestones = [];
+            if (this.milestones && this.milestones.length > 0) {
+                for (let i = 0; i < this.milestones.length; i++) {
+                    const m = this.milestones[i];
+                    const msEnd = m.question_range_end || m.end_question || 0;
+                    if (pageStart <= msEnd && pageEnd >= msEnd) {
+                        const progress = Math.round((m.completed_questions / m.total_questions) * 100);
+                        crossedMilestones.push({ index: i, progress, isComplete: progress === 100 });
+                    }
+                }
+            }
+
+            return {
+                ...page,
+                pageStart,
+                pageEnd,
+                cumulative: cumulativeQuestions,
+                milestoneIndex,
+                milestone,
+                milestoneColor: milestoneIndex >= 0 ? milestoneColors[milestoneIndex % milestoneColors.length] : '#9E9E9E',
+                crossedMilestones
+            };
+        });
+
+        // Apply filters
+        const filteredPages = this.applyFilters(pagesWithData);
+
+        // Calculate stats
+        const totalQuestions = filteredPages.reduce((sum, p) => sum + (p.total_questions || 0), 0);
+        const completedQuestions = filteredPages.reduce((sum, p) => sum + (p.completed_questions || 0), 0);
+        this.updateAdminStats(filteredPages, totalQuestions, completedQuestions);
+        
+        tbody.innerHTML = filteredPages.map((page, displayIndex) => {
+            const completedQuestions = page.completed_questions || 0;
+            const totalQuestions = page.total_questions || 0;
+            const remainingQuestions = totalQuestions - completedQuestions;
+            const progressPercent = totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0;
             
-            // Add milestone background color (light version of the milestone color)
-            const milestoneBackground = milestoneColor + '15'; // Add alpha for transparency
+            // Get page name - extract from URL if needed
+            let pageName = page.page_name || '';
+            if (!pageName || pageName.startsWith('http') || pageName.includes('iitianacademy.com')) {
+                const url = page.page_link || '';
+                const parts = url.split('/').filter(p => p && !p.includes('http') && !p.includes('iitianacademy'));
+                const lastPart = parts[parts.length - 1] || '';
+                pageName = lastPart.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Untitled';
+            }
+
+            const milestoneBadge = page.milestoneIndex >= 0 ? `M${page.milestoneIndex + 1}` : 'N/A';
+            const backgroundColor = page.milestoneIndex >= 0 ? `${page.milestoneColor}15` : 'transparent';
+            
+            // Progress color
+            let progressColor = '#e74c3c';
+            if (progressPercent === 100) progressColor = '#27ae60';
+            else if (progressPercent >= 75) progressColor = '#2ecc71';
+            else if (progressPercent >= 50) progressColor = '#f39c12';
+            else if (progressPercent >= 25) progressColor = '#3498db';
+
+            // Status styling
+            let statusClass = 'pending';
+            if (page.status === 'Completed') statusClass = 'completed';
+            else if (page.status === 'In Progress') statusClass = 'partial';
+
+            // Cumulative cell content
+            let cumulativeContent = `<span class="admin-cumulative-cell">${page.cumulative}</span>`;
+            if (page.crossedMilestones.length > 0) {
+                const cm = page.crossedMilestones[0];
+                if (cm.isComplete) {
+                    cumulativeContent = `
+                        <div class="admin-cumulative-cell milestone-marker">
+                            <strong>${page.cumulative}</strong>
+                            <span class="marker-label">🎯 M${cm.index + 1} Done!</span>
+                        </div>
+                    `;
+                } else {
+                    cumulativeContent = `
+                        <div class="admin-cumulative-cell milestone-marker" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+                            <strong>${page.cumulative}</strong>
+                            <span class="marker-label">M${cm.index + 1}: ${cm.progress}%</span>
+                        </div>
+                    `;
+                }
+            }
+
+            const pageId = page._id || page.id;
 
             return `
-                <tr data-page-id="${pageId}" class="milestone-row" style="border-left: 5px solid ${milestoneColor}; background: ${milestoneBackground};">
+                <tr data-page-id="${pageId}" style="border-left: 5px solid ${page.milestoneColor}; background-color: ${backgroundColor};">
+                    <td><strong>${displayIndex + 1}</strong></td>
                     <td>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span class="milestone-badge" style="background: ${milestoneColor}; font-weight: 700; padding: 4px 10px; border-radius: 4px; color: white; font-size: 0.75rem;">${milestoneBadge}</span>
-                            <span style="font-weight: 600;">${index + 1}</span>
-                        </div>
-                    </td>
-                    <td>
-                        <a href="${page.page_link || page.url}" target="_blank" class="page-link" title="${page.page_link || page.url}">
-                            ${this.truncateUrl(page.page_link || page.url)}
-                        </a>
-                    </td>
-                    <td><span class="total-questions">${totalQuestions}</span></td>
-                    <td><span class="completed-questions">${completedQuestions}</span></td>
-                    <td><span class="remaining-questions">${remainingQuestions}</span></td>
-                    <td><span class="subject">${page.subject || 'N/A'}</span></td>
-                    <td><span class="year">${page.year || 'N/A'}</span></td>
-                    <td>
-                        <span class="status ${statusClass}">
-                            ${page.status || (status.charAt(0).toUpperCase() + status.slice(1))}
+                        <span class="milestone-badge" style="background: ${page.milestoneColor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">
+                            ${milestoneBadge}
                         </span>
                     </td>
+                    <td class="admin-page-name" title="${pageName}">${pageName}</td>
+                    <td>
+                        <a href="${page.page_link}" target="_blank" class="page-link" title="${page.page_link}">
+                            ${this.truncateUrl(page.page_link)}
+                        </a>
+                    </td>
+                    <td><strong>${totalQuestions}</strong></td>
+                    <td>
+                        <div class="admin-progress-cell">
+                            <span class="progress-number" style="color: ${progressColor};">
+                                ${completedQuestions}
+                                ${progressPercent === 100 ? '<i class="fas fa-check-circle" style="color: #27ae60;"></i>' : ''}
+                            </span>
+                            <div class="mini-progress">
+                                <div class="mini-progress-fill" style="width: ${progressPercent}%; background: ${progressColor};"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${remainingQuestions}</td>
+                    <td>${cumulativeContent}</td>
+                    <td>${page.subject || 'N/A'}</td>
+                    <td>${page.year || 'N/A'}</td>
+                    <td><span class="status ${statusClass}">${page.status || 'Pending'}</span></td>
                     <td>
                         <div class="action-buttons">
                             <button class="btn btn-sm btn-primary" onclick="adminPanel.markAsCompleted('${pageId}')" title="Mark as Completed">
@@ -416,8 +490,8 @@ class AdminPanel {
                             <button class="btn btn-sm btn-secondary" onclick="adminPanel.editPageFromTable('${pageId}')" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-warning" onclick="adminPanel.resetProgress('${pageId}')" title="Reset Progress">
-                                <i class="fas fa-undo"></i>
+                            <button class="btn btn-sm btn-danger" onclick="adminPanel.deletePage('${pageId}')" title="Delete">
+                                <i class="fas fa-trash"></i>
                             </button>
                         </div>
                     </td>
@@ -425,8 +499,145 @@ class AdminPanel {
             `;
         }).join('');
 
-        // Add search functionality
-        this.bindPageSearchEvents();
+        // Add footer with totals
+        if (tfoot && filteredPages.length > 0) {
+            const totalQ = filteredPages.reduce((sum, p) => sum + (p.total_questions || 0), 0);
+            const completedQ = filteredPages.reduce((sum, p) => sum + (p.completed_questions || 0), 0);
+            const remainingQ = totalQ - completedQ;
+            const overallPercent = totalQ > 0 ? Math.round((completedQ / totalQ) * 100) : 0;
+
+            tfoot.innerHTML = `
+                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 700;">
+                    <td colspan="4" style="text-align: right; padding: 12px;">TOTALS:</td>
+                    <td>${totalQ}</td>
+                    <td>${completedQ}</td>
+                    <td>${remainingQ}</td>
+                    <td colspan="5" style="text-align: center;">
+                        <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px;">
+                            📊 Overall: ${overallPercent}%
+                        </span>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Bind filter events
+        this.bindFilterEvents();
+    }
+
+    populateFilterDropdowns(pages) {
+        // Populate milestone filter
+        const milestoneFilter = document.getElementById('milestoneFilter');
+        if (milestoneFilter && this.milestones) {
+            const currentValue = milestoneFilter.value;
+            milestoneFilter.innerHTML = '<option value="">All Milestones</option>';
+            this.milestones.forEach((m, i) => {
+                milestoneFilter.innerHTML += `<option value="${i}">M${i + 1}: ${m.title || `Milestone ${i + 1}`}</option>`;
+            });
+            milestoneFilter.value = currentValue;
+        }
+
+        // Populate subject filter
+        const subjectFilter = document.getElementById('subjectFilter');
+        if (subjectFilter) {
+            const currentValue = subjectFilter.value;
+            const subjects = [...new Set(pages.map(p => p.subject).filter(s => s))];
+            subjectFilter.innerHTML = '<option value="">All Subjects</option>';
+            subjects.forEach(s => {
+                subjectFilter.innerHTML += `<option value="${s}">${s}</option>`;
+            });
+            subjectFilter.value = currentValue;
+        }
+    }
+
+    applyFilters(pages) {
+        const milestoneFilter = document.getElementById('milestoneFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const subjectFilter = document.getElementById('subjectFilter');
+        const searchInput = document.getElementById('pagesSearch');
+
+        let filtered = [...pages];
+
+        // Milestone filter
+        if (milestoneFilter && milestoneFilter.value !== '' && milestoneFilter.value !== 'all') {
+            const msIndex = parseInt(milestoneFilter.value);
+            if (!isNaN(msIndex)) {
+                filtered = filtered.filter(p => p.milestoneIndex === msIndex);
+            }
+        }
+
+        // Status filter
+        if (statusFilter && statusFilter.value && statusFilter.value !== 'all') {
+            filtered = filtered.filter(p => p.status === statusFilter.value);
+        }
+
+        // Subject filter
+        if (subjectFilter && subjectFilter.value && subjectFilter.value !== 'all') {
+            filtered = filtered.filter(p => {
+                const pageSubject = (p.subject || '').toLowerCase();
+                const filterValue = subjectFilter.value.toLowerCase();
+                return pageSubject === filterValue;
+            });
+        }
+
+        // Search filter
+        if (searchInput && searchInput.value.trim()) {
+            const search = searchInput.value.toLowerCase();
+            filtered = filtered.filter(p => {
+                const name = (p.page_name || '').toLowerCase();
+                const link = (p.page_link || '').toLowerCase();
+                const subject = (p.subject || '').toLowerCase();
+                return name.includes(search) || link.includes(search) || subject.includes(search);
+            });
+        }
+
+        return filtered;
+    }
+
+    updateAdminStats(pages, totalQuestions, completedQuestions) {
+        const statPages = document.getElementById('statTotalPages');
+        const statTotal = document.getElementById('statTotalQuestions');
+        const statCompleted = document.getElementById('statCompletedQuestions');
+        const statProgress = document.getElementById('statProgressPercent');
+
+        // Calculate total milestone questions (from milestone definitions, not pages)
+        // This is the actual target set by the client (e.g., 480 × 3 = 1440)
+        const totalMilestoneQuestions = this.milestones && this.milestones.length > 0
+            ? this.milestones.reduce((sum, m) => {
+                const rangeStart = m.question_range_start || m.start_question || 0;
+                const rangeEnd = m.question_range_end || m.end_question || 0;
+                return sum + (rangeEnd - rangeStart + 1);
+            }, 0)
+            : totalQuestions;
+
+        if (statPages) statPages.textContent = pages.length;
+        if (statTotal) statTotal.textContent = totalMilestoneQuestions;
+        if (statCompleted) statCompleted.textContent = completedQuestions;
+        if (statProgress) {
+            const percent = totalMilestoneQuestions > 0 ? Math.round((completedQuestions / totalMilestoneQuestions) * 100) : 0;
+            statProgress.textContent = `${percent}%`;
+        }
+    }
+
+    bindFilterEvents() {
+        const filters = ['milestoneFilter', 'statusFilter', 'subjectFilter'];
+        filters.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.hasAttribute('data-bound')) {
+                el.setAttribute('data-bound', 'true');
+                el.addEventListener('change', () => this.loadQuestionPages());
+            }
+        });
+
+        const searchInput = document.getElementById('pagesSearch');
+        if (searchInput && !searchInput.hasAttribute('data-bound')) {
+            searchInput.setAttribute('data-bound', 'true');
+            let timeout;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => this.loadQuestionPages(), 300);
+            });
+        }
     }
 
     updateProgressCards(progress) {
@@ -759,8 +970,8 @@ class AdminPanel {
 
             // Auto-set year if empty or N/A
             if (!yearField.value || yearField.value === 'N/A') {
-                // Match years from 2000-2029 (20[0-2][0-9])
-                const yearMatch = url.match(/(20[0-2][0-9])/);
+                // Match years from 1990-2099 (19[9][0-9] or 20[0-9][0-9])
+                const yearMatch = url.match(/(19[9][0-9]|20[0-9][0-9])/);
                 if (yearMatch) {
                     yearField.value = yearMatch[1];
                 }

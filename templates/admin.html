@@ -100,10 +100,10 @@
             <div class="admin-content">
                 <!-- Milestone Selector -->
                 <div class="milestone-selector-wrapper">
-                    <label for="milestoneFilter" class="milestone-filter-label">
+                    <label for="globalMilestoneFilter" class="milestone-filter-label">
                         <i class="fas fa-filter"></i> View Milestone:
                     </label>
-                    <select id="milestoneFilter" class="milestone-filter-select">
+                    <select id="globalMilestoneFilter" class="milestone-filter-select">
                         <option value="all">All Milestones (Combined)</option>
                     </select>
                 </div>
@@ -244,7 +244,7 @@
                 </section>
 
                 <!-- Question Pages Management -->
-                <section class="pages-management">
+                <section class="pages-management question-pages-section">
                     <div class="section-header">
                         <h2><i class="fas fa-file-alt"></i> Question Pages Management</h2>
                         <div class="section-controls">
@@ -252,28 +252,76 @@
                                 <i class="fas fa-plus"></i>
                                 Add New Page
                             </button>
-                            <div class="search-box">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="pagesSearch" placeholder="Search pages...">
+                        </div>
+                    </div>
+                    
+                    <!-- Enhanced Filter Controls -->
+                    <div class="table-filter-controls">
+                        <div class="filter-row">
+                            <div class="filter-group search-group">
+                                <label><i class="fas fa-search"></i> Search:</label>
+                                <input type="text" id="pagesSearch" class="search-input" placeholder="Search pages by name, link, or subject...">
                             </div>
-                            <select id="statusFilter" class="status-filter">
-                                <option value="">All Status</option>
-                                <option value="completed">Completed</option>
-                                <option value="partial">Partial</option>
-                                <option value="pending">Pending</option>
-                            </select>
+                        </div>
+                        <div class="filter-row">
+                            <div class="filter-group">
+                                <label><i class="fas fa-filter"></i> Milestone:</label>
+                                <select id="milestoneFilter" class="filter-select">
+                                    <option value="">All Milestones</option>
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label><i class="fas fa-tasks"></i> Status:</label>
+                                <select id="statusFilter" class="filter-select">
+                                    <option value="">All Status</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Pending">Pending</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label><i class="fas fa-book"></i> Subject:</label>
+                                <select id="subjectFilter" class="filter-select">
+                                    <option value="">All Subjects</option>
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Stats Summary -->
+                        <div class="admin-stats-summary" id="adminStatsSummary">
+                            <div class="stat-item">
+                                <i class="fas fa-file-alt"></i>
+                                <span id="statTotalPages">0</span> Pages
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-question-circle"></i>
+                                <span id="statTotalQuestions">0</span> Questions
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span id="statCompletedQuestions">0</span> Completed
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-chart-pie"></i>
+                                <span id="statProgressPercent">0%</span>
+                            </div>
                         </div>
                     </div>
                     
                     <div class="pages-table-container">
-                        <table class="pages-table" id="pagesTable">
+                        <table class="pages-table enhanced-table" id="pagesTable">
                             <thead>
                                 <tr>
                                     <th>S.NO.</th>
+                                    <th>Milestone</th>
+                                    <th>PAGE NAME</th>
                                     <th>PAGE LINK</th>
-                                    <th>TOTAL QUESTIONS</th>
+                                    <th>TOTAL</th>
                                     <th>Completed</th>
                                     <th>Remaining</th>
+                                    <th>Cumulative</th>
                                     <th>Subject</th>
                                     <th>Year</th>
                                     <th>Status</th>
@@ -282,12 +330,15 @@
                             </thead>
                             <tbody id="pagesTableBody">
                                 <tr>
-                                    <td colspan="9" class="no-data">
+                                    <td colspan="12" class="no-data">
                                         <i class="fas fa-inbox"></i>
                                         <p>Loading question pages...</p>
                                     </td>
                                 </tr>
                             </tbody>
+                            <tfoot id="pagesTableFooter">
+                                <!-- Totals populated by JS -->
+                            </tfoot>
                         </table>
                     </div>
                 </section>
@@ -445,7 +496,7 @@
                             <i class="fas fa-calendar"></i>
                             Year
                         </label>
-                        <input type="number" id="year" name="year" min="2000" max="2030" required placeholder="2022">
+                        <input type="number" id="year" name="year" min="1990" max="2099" required placeholder="2022">
                     </div>
                 </div>
 

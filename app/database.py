@@ -35,11 +35,20 @@ class DatabaseManager:
             await self.mock_db.connect_to_mongo()
             return
         
+        logger.info(f"🔍 Attempting to connect to MongoDB: {mongodb_uri[:50]}...")
+        
         try:
             database_name = os.getenv("DATABASE_NAME", "tracker_db")
+            logger.info(f"📋 Using database name: {database_name}")
             
-            self.client = AsyncIOMotorClient(mongodb_uri, serverSelectionTimeoutMS=5000)
+            # Connect to MongoDB with SSL certificate verification disabled for development
+            self.client = AsyncIOMotorClient(
+                mongodb_uri, 
+                serverSelectionTimeoutMS=5000,
+                tlsAllowInvalidCertificates=True  # Disable SSL cert verification for development
+            )
             
+            logger.info("🔄 Testing connection with ping...")
             # Test connection with shorter timeout
             await self.client.admin.command('ping')
             logger.info("✅ Successfully connected to MongoDB Atlas")
@@ -100,12 +109,14 @@ class DatabaseManager:
             return None
     
     async def get_all_pages(self) -> List[dict]:
-        """Get all pages"""
+        """Get all pages sorted by created_at ascending (oldest first)"""
         try:
             if USE_MOCK_DB:
                 return await self.mock_db.get_all_pages()
             
-            cursor = self.collection.find({}).sort("created_at", -1)
+            # Sort by created_at ascending (1) so oldest pages come first
+            # This ensures milestone assignment is based on when pages were originally added
+            cursor = self.collection.find({}).sort("created_at", 1)
             pages = []
             async for page in cursor:
                 page["_id"] = str(page["_id"])
