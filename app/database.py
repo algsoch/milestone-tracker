@@ -75,6 +75,20 @@ class DatabaseManager:
             self.client.close()
             logger.info("Disconnected from MongoDB")
     
+    async def check_connection(self) -> bool:
+        """Check if database connection is active"""
+        try:
+            if USE_MOCK_DB:
+                return True  # Mock DB is always "connected"
+            
+            if self.client:
+                await self.client.admin.command('ping')
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Database connection check failed: {e}")
+            return False
+    
     async def create_page(self, page_data: dict) -> str:
         """Create a new page record"""
         try:

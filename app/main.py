@@ -716,6 +716,26 @@ async def health_check():
         "version": "1.0.0"
     }
 
+@app.get("/api/db-status")
+async def get_database_status():
+    """Get database connection status"""
+    try:
+        is_connected = await db_manager.check_connection()
+        return {
+            "connected": is_connected,
+            "status": "connected" if is_connected else "disconnected",
+            "database": "MongoDB Atlas" if is_connected else "Unknown",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error checking database status: {e}")
+        return {
+            "connected": False,
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
 @app.get("/api/export/csv")
 async def export_pages_csv():
     """Export all pages data to CSV with milestone assignment (Public)"""

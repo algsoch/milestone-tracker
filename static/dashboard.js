@@ -1020,7 +1020,111 @@ class MilestoneTracker {
         else if (overallProgress >= 25) overallColor = '#3498db';
         
         if (tfoot) {
+            // Build mobile milestone cards HTML (using same calculation as desktop)
+            let mobileCards = '';
+            if (this.data.milestones && this.data.milestones.length > 0) {
+                const sortedMilestonesForMobile = [...this.data.milestones].sort((a, b) => 
+                    (a.question_range_start || 0) - (b.question_range_start || 0)
+                );
+                
+                sortedMilestonesForMobile.forEach((milestone, index) => {
+                    const rangeStart = milestone.question_range_start || 0;
+                    const rangeEnd = milestone.question_range_end || 0;
+                    const milestoneTotal = rangeEnd - rangeStart + 1;
+                    
+                    // Calculate how many questions fall within THIS milestone's range (SAME as desktop)
+                    let questionsInThisMilestone = 0;
+                    let cumulativeQuestions = 0;
+                    
+                    for (const page of displayPages) {
+                        const pageTotal = page.total_questions || 0;
+                        const pageCompleted = page.completed_questions || 0;
+                        
+                        const pageStart = cumulativeQuestions + 1;
+                        const pageEnd = cumulativeQuestions + pageTotal;
+                        
+                        if (pageEnd >= rangeStart && pageStart <= rangeEnd) {
+                            const overlapStart = Math.max(pageStart, rangeStart);
+                            const overlapEnd = Math.min(pageEnd, rangeEnd);
+                            const overlapTotal = overlapEnd - overlapStart + 1;
+                            
+                            const pageProgress = pageTotal > 0 ? pageCompleted / pageTotal : 0;
+                            const overlapCompleted = Math.floor(overlapTotal * pageProgress);
+                            
+                            questionsInThisMilestone += overlapCompleted;
+                        }
+                        
+                        cumulativeQuestions += pageTotal;
+                    }
+                    
+                    const msRemaining = Math.max(0, milestoneTotal - questionsInThisMilestone);
+                    const msProgress = milestoneTotal > 0 ? Math.round((questionsInThisMilestone / milestoneTotal) * 100) : 0;
+                    
+                    let msIcon = '🎯', msState = 'NOT STARTED', msBadgeClass = 'notstarted', msColor = '#95a5a6';
+                    if (msProgress === 100) { msIcon = '🏆'; msState = 'COMPLETE!'; msBadgeClass = 'complete'; msColor = '#27ae60'; }
+                    else if (msProgress >= 75) { msIcon = '🔥'; msState = 'ALMOST THERE'; msBadgeClass = 'almost'; msColor = '#2ecc71'; }
+                    else if (msProgress >= 50) { msIcon = '📈'; msState = 'HALFWAY'; msBadgeClass = 'halfway'; msColor = '#f39c12'; }
+                    else if (msProgress >= 25) { msIcon = '💪'; msState = 'MAKING PROGRESS'; msBadgeClass = 'working'; msColor = '#3498db'; }
+                    else if (msProgress > 0) { msIcon = '🚀'; msState = `GETTING STARTED (${msProgress}%)`; msBadgeClass = 'starting'; msColor = '#9b59b6'; }
+                    
+                    mobileCards += `
+                        <div class="mobile-milestone-card ${msBadgeClass}">
+                            <div class="mmc-header">
+                                <span class="mmc-badge">${msIcon} M${index + 1}: ${msState}</span>
+                                <span class="mmc-title">${milestone.title || `Milestone ${index + 1}`}</span>
+                            </div>
+                            <div class="mmc-progress">
+                                <div class="mmc-progress-bar">
+                                    <div class="mmc-progress-fill" style="width: ${Math.max(msProgress, 5)}%; background: ${msColor};">
+                                        <span>${msProgress}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mmc-stats">
+                                <div class="mmc-stat"><i class="fas fa-bullseye"></i><strong>${milestoneTotal}</strong><small>Total</small></div>
+                                <div class="mmc-stat" style="color: ${msColor};"><i class="fas fa-check"></i><strong>${questionsInThisMilestone}</strong><small>Done</small></div>
+                                <div class="mmc-stat" style="color: ${msRemaining > 0 ? '#e74c3c' : '#27ae60'};"><i class="fas fa-clock"></i><strong>${msRemaining}</strong><small>Left</small></div>
+                                <div class="mmc-stat"><i class="fas fa-arrows-alt-h"></i><strong>${rangeStart}-${rangeEnd}</strong><small>Range</small></div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            // Add Overall Totals card to mobile cards
+            const overallMobileCard = `
+                <div class="mobile-milestone-card overall">
+                    <div class="mmc-header">
+                        <span class="mmc-badge">📊 OVERALL TOTALS</span>
+                        <span class="mmc-title">All Milestones (${totalMilestoneQuestions} Target)</span>
+                    </div>
+                    <div class="mmc-progress">
+                        <div class="mmc-progress-bar">
+                            <div class="mmc-progress-fill" style="width: ${Math.max(overallProgress, 5)}%; background: ${overallColor};">
+                                <span>${overallProgress}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mmc-stats">
+                        <div class="mmc-stat"><i class="fas fa-list"></i><strong>${totalMilestoneQuestions}</strong><small>Total</small></div>
+                        <div class="mmc-stat" style="color: ${overallColor};"><i class="fas fa-check"></i><strong>${totalCompleted}</strong><small>Done</small></div>
+                        <div class="mmc-stat" style="color: ${totalRemaining > 0 ? '#e74c3c' : '#27ae60'};"><i class="fas fa-clock"></i><strong>${totalRemaining}</strong><small>Left</small></div>
+                        <div class="mmc-stat"><i class="fas fa-layer-group"></i><strong>${finalCumulative}</strong><small>Cumulative</small></div>
+                    </div>
+                </div>
+            `;
+            
             tfoot.innerHTML = `
+                <!-- Mobile Horizontal Scroll Container -->
+                <tr class="mobile-milestones-row">
+                    <td colspan="100">
+                        <div class="mobile-milestones-container">
+                            ${mobileCards}
+                            ${overallMobileCard}
+                        </div>
+                    </td>
+                </tr>
+                <!-- Desktop Table Rows -->
                 ${milestoneRows}
                 <tr class="totals-row-compact overall-summary">
                     <td colspan="2" class="totals-title">
@@ -1039,10 +1143,14 @@ class MilestoneTracker {
                             </div>
                         </div>
                     </td>
-                    <td class="stat-total"><i class="fas fa-list"></i> <strong>${totalMilestoneQuestions}</strong></td>
-                    <td class="stat-completed" style="color: ${overallColor};"><i class="fas fa-check"></i> <strong>${totalCompleted}</strong></td>
-                    <td class="stat-remaining" style="color: #e74c3c;"><i class="fas fa-clock"></i> <strong>${totalRemaining}</strong></td>
-                    <td class="stat-cumulative"><i class="fas fa-layer-group"></i> <strong>${finalCumulative}</strong></td>
+                    <td class="stats-container" colspan="4">
+                        <div class="stats-grid">
+                            <div class="stat-item stat-total"><i class="fas fa-list"></i> <strong>${totalMilestoneQuestions}</strong><span class="stat-label">Total</span></div>
+                            <div class="stat-item stat-completed" style="color: ${overallColor};"><i class="fas fa-check"></i> <strong>${totalCompleted}</strong><span class="stat-label">Done</span></div>
+                            <div class="stat-item stat-remaining" style="color: #e74c3c;"><i class="fas fa-clock"></i> <strong>${totalRemaining}</strong><span class="stat-label">Left</span></div>
+                            <div class="stat-item stat-cumulative"><i class="fas fa-layer-group"></i> <strong>${finalCumulative}</strong><span class="stat-label">Cumulative</span></div>
+                        </div>
+                    </td>
                     <td colspan="3" class="stats-summary">
                         <small><i class="fas fa-check-circle"></i> ${totalCompleted}/${totalMilestoneQuestions} • ${overallProgress}%</small>
                     </td>
@@ -1371,7 +1479,7 @@ class MilestoneTracker {
                 await this.loadData();
             } else {
                 const error = await response.json();
-                this.showToast(error.detail || 'Failed to add page', 'error');
+                this.showToast(this.getErrorMessage(error, 'Failed to add page'), 'error');
             }
         } catch (error) {
             console.error('Error adding page:', error);
@@ -1423,7 +1531,7 @@ class MilestoneTracker {
                 await this.loadData();
             } else {
                 const error = await response.json();
-                this.showToast(error.detail || 'Failed to update page', 'error');
+                this.showToast(this.getErrorMessage(error, 'Failed to update page'), 'error');
             }
         } catch (error) {
             console.error('Error updating page:', error);
@@ -1454,7 +1562,7 @@ class MilestoneTracker {
                 await this.loadData();
             } else {
                 const error = await response.json();
-                this.showToast(error.detail || 'Failed to delete page', 'error');
+                this.showToast(this.getErrorMessage(error, 'Failed to delete page'), 'error');
             }
         } catch (error) {
             console.error('Error deleting page:', error);
@@ -1693,6 +1801,26 @@ class MilestoneTracker {
             toast.classList.remove('show');
             setTimeout(() => document.body.removeChild(toast), 300);
         }, 3000);
+    }
+
+    // Helper function to extract error message from API response
+    getErrorMessage(error, defaultMessage) {
+        if (!error) return defaultMessage;
+        
+        if (error.detail) {
+            if (Array.isArray(error.detail)) {
+                // Validation error - extract messages from array
+                return error.detail.map(e => e.msg || e.message || JSON.stringify(e)).join(', ');
+            } else if (typeof error.detail === 'string') {
+                return error.detail;
+            } else {
+                return JSON.stringify(error.detail);
+            }
+        } else if (error.message) {
+            return typeof error.message === 'string' ? error.message : JSON.stringify(error.message);
+        }
+        
+        return defaultMessage;
     }
 
     updateLoginStatus(isAdmin) {
@@ -1983,7 +2111,7 @@ class MilestoneTracker {
                 await this.loadMilestones();
             } else {
                 const error = await response.json();
-                this.showToast(error.detail || 'Failed to save milestone', 'error');
+                this.showToast(this.getErrorMessage(error, 'Failed to save milestone'), 'error');
             }
         } catch (error) {
             console.error('Error saving milestone:', error);

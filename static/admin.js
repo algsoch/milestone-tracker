@@ -44,6 +44,15 @@ class AdminPanel {
             addPageBtn.addEventListener('click', () => this.openPageModal());
         }
 
+        // Database status indicator click to refresh
+        const dbStatusIndicator = document.getElementById('dbStatusIndicator');
+        if (dbStatusIndicator) {
+            dbStatusIndicator.addEventListener('click', () => {
+                this.showNotification('Checking database connection...', 'info');
+                this.checkDatabaseStatus();
+            });
+        }
+
         // Modal events
         const modalClose = document.getElementById('modalClose');
         const cancelBtn = document.getElementById('cancelBtn');
@@ -154,11 +163,54 @@ class AdminPanel {
         document.getElementById('adminLoginSection').style.display = 'none';
         document.getElementById('adminDashboardSection').style.display = 'block';
         
+        // Check database status
+        this.checkDatabaseStatus();
+        
         // Load milestones first, then pages (pages need milestone data for assignment)
         this.loadMilestones().then(() => {
             this.loadQuestionPages();
         });
         this.loadProgressData();
+        
+        // Periodically check database status every 30 seconds
+        this.dbStatusInterval = setInterval(() => this.checkDatabaseStatus(), 30000);
+    }
+
+    async checkDatabaseStatus() {
+        const indicator = document.getElementById('dbStatusIndicator');
+        const dot = indicator?.querySelector('.db-status-dot');
+        const text = indicator?.querySelector('.db-status-text');
+        
+        if (!indicator) return;
+        
+        try {
+            const response = await fetch('/api/db-status');
+            const data = await response.json();
+            
+            // Remove all status classes
+            indicator.classList.remove('connected', 'disconnected', 'checking');
+            dot.classList.remove('connected', 'disconnected', 'checking');
+            
+            if (data.connected) {
+                indicator.classList.add('connected');
+                dot.classList.add('connected');
+                text.innerHTML = '<i class="fas fa-database"></i> MongoDB Connected';
+                indicator.title = `Connected to ${data.database}\nLast checked: ${new Date().toLocaleTimeString()}`;
+            } else {
+                indicator.classList.add('disconnected');
+                dot.classList.add('disconnected');
+                text.innerHTML = '<i class="fas fa-exclamation-triangle"></i> DB Disconnected';
+                indicator.title = `Database disconnected: ${data.error || 'Unknown error'}\nClick to retry`;
+            }
+        } catch (error) {
+            console.error('Error checking database status:', error);
+            indicator.classList.remove('connected', 'disconnected', 'checking');
+            indicator.classList.add('disconnected');
+            dot.classList.remove('connected', 'disconnected', 'checking');
+            dot.classList.add('disconnected');
+            text.innerHTML = '<i class="fas fa-times-circle"></i> Connection Error';
+            indicator.title = 'Failed to check database status. Click to retry.';
+        }
     }
 
     async loadMilestones() {
@@ -506,16 +558,32 @@ class AdminPanel {
             const remainingQ = totalQ - completedQ;
             const overallPercent = totalQ > 0 ? Math.round((completedQ / totalQ) * 100) : 0;
 
+            // Add class to tfoot for styling
+            tfoot.classList.add('admin-pages-tfoot');
+            
             tfoot.innerHTML = `
-                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 700;">
-                    <td colspan="4" style="text-align: right; padding: 12px;">TOTALS:</td>
-                    <td>${totalQ}</td>
-                    <td>${completedQ}</td>
-                    <td>${remainingQ}</td>
-                    <td colspan="5" style="text-align: center;">
-                        <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px;">
-                            📊 Overall: ${overallPercent}%
-                        </span>
+                <tr class="admin-footer-totals">
+                    <td class="footer-label" colspan="4">
+                        <span class="footer-title"><i class="fas fa-calculator"></i> TOTALS</span>
+                    </td>
+                    <td class="footer-stat footer-total">
+                        <span class="stat-label">Total</span>
+                        <span class="stat-value">${totalQ}</span>
+                    </td>
+                    <td class="footer-stat footer-completed">
+                        <span class="stat-label">Done</span>
+                        <span class="stat-value">${completedQ}</span>
+                    </td>
+                    <td class="footer-stat footer-remaining">
+                        <span class="stat-label">Left</span>
+                        <span class="stat-value">${remainingQ}</span>
+                    </td>
+                    <td class="footer-progress" colspan="5">
+                        <div class="footer-progress-bar">
+                            <div class="footer-progress-fill" style="width: ${overallPercent}%;">
+                                <span>📊 ${overallPercent}%</span>
+                            </div>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -800,11 +868,11 @@ class AdminPanel {
                 this.showNotification('Page marked as completed successfully!', 'success');
             } else {
                 const error = await response.json();
-                this.showNotification(error.detail || 'Failed to mark page as completed', 'error');
+                this.showNotification(this.getErrorMessage(error, 'Failed to mark page as completed'), 'error');
             }
         } catch (error) {
             console.error('Error marking page as completed:', error);
-            this.showNotification('Error marking page as completed: ' + error.message, 'error');
+            this.showNotification('Error marking page as completed: ' + (error.message || 'Unknown error'), 'error');
         }
     }
 
@@ -854,11 +922,11 @@ class AdminPanel {
                 this.showNotification('Page progress reset successfully!', 'success');
             } else {
                 const error = await response.json();
-                this.showNotification(error.detail || 'Failed to reset page progress', 'error');
+                this.showNotification(this.getErrorMessage(error, 'Failed to reset page progress'), 'error');
             }
         } catch (error) {
             console.error('Error resetting page progress:', error);
-            this.showNotification('Error resetting page progress: ' + error.message, 'error');
+            this.showNotification('Error resetting page progress: ' + (error.message || 'Unknown error'), 'error');
         }
     }
 
@@ -883,11 +951,11 @@ class AdminPanel {
                 this.showNotification('Page deleted successfully!', 'success');
             } else {
                 const error = await response.json();
-                this.showNotification(error.detail || 'Failed to delete page', 'error');
+                this.showNotification(this.getErrorMessage(error, 'Failed to delete page'), 'error');
             }
         } catch (error) {
             console.error('Error deleting page:', error);
-            this.showNotification('Error deleting page: ' + error.message, 'error');
+            this.showNotification('Error deleting page: ' + (error.message || 'Unknown error'), 'error');
         }
     }
 
@@ -1069,11 +1137,11 @@ class AdminPanel {
             } else {
                 const error = await response.json();
                 console.error('Page save error:', error);
-                this.showNotification(error.detail || error.message || `Failed to ${isEdit ? 'update' : 'add'} page`, 'error');
+                this.showNotification(this.getErrorMessage(error, `Failed to ${isEdit ? 'update' : 'add'} page`), 'error');
             }
         } catch (error) {
             console.error('Error saving page:', error);
-            this.showNotification('Error saving page: ' + error.message, 'error');
+            this.showNotification('Error saving page: ' + (error.message || 'Unknown error'), 'error');
         }
     }
 
@@ -1405,11 +1473,11 @@ class AdminPanel {
             } else {
                 const error = await response.json();
                 console.error('Milestone save error:', error);
-                this.showNotification(error.detail || error.message || `Failed to ${isEdit ? 'update' : 'create'} milestone`, 'error');
+                this.showNotification(this.getErrorMessage(error, `Failed to ${isEdit ? 'update' : 'create'} milestone`), 'error');
             }
         } catch (error) {
             console.error('Error saving milestone:', error);
-            this.showNotification('Error saving milestone: ' + error.message, 'error');
+            this.showNotification('Error saving milestone: ' + (error.message || 'Unknown error'), 'error');
         }
     }
 
@@ -1444,11 +1512,11 @@ class AdminPanel {
             } else {
                 const error = await response.json();
                 console.error('Payment status update error:', error);
-                this.showNotification(error.detail || 'Failed to update payment status', 'error');
+                this.showNotification(this.getErrorMessage(error, 'Failed to update payment status'), 'error');
             }
         } catch (error) {
             console.error('Error updating payment status:', error);
-            this.showNotification('Error updating payment status: ' + error.message, 'error');
+            this.showNotification('Error updating payment status: ' + (error.message || 'Unknown error'), 'error');
         }
     }
 
@@ -1525,6 +1593,26 @@ class AdminPanel {
             case 'warning': return 'exclamation-triangle';
             default: return 'info-circle';
         }
+    }
+
+    // Helper function to extract error message from API response
+    getErrorMessage(error, defaultMessage) {
+        if (!error) return defaultMessage;
+        
+        if (error.detail) {
+            if (Array.isArray(error.detail)) {
+                // Validation error - extract messages from array
+                return error.detail.map(e => e.msg || e.message || JSON.stringify(e)).join(', ');
+            } else if (typeof error.detail === 'string') {
+                return error.detail;
+            } else {
+                return JSON.stringify(error.detail);
+            }
+        } else if (error.message) {
+            return typeof error.message === 'string' ? error.message : JSON.stringify(error.message);
+        }
+        
+        return defaultMessage;
     }
 }
 
