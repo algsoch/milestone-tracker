@@ -1,11 +1,13 @@
 import os
 import logging
 import re
+import csv
+import io
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -713,6 +715,126 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0"
     }
+
+@app.get("/api/export/csv")
+async def export_pages_csv():
+    """Export all pages data to CSV with milestone assignment (Public)"""
+    try:
+        # Get pages and milestones
+        pages = await db_manager.get_all_pages()
+        milestones = await db_manager.get_all_milestones()
+        
+        # Sort milestones by start_question
+        milestones.sort(key=lambda m: m.get('question_range_start', m.get('start_question', 0)))
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        fieldnames = [
+            'S.NO.', 'Milestone', 'PAGE NAME', 'PAGE LINK', 
+            'TOTAL', 'Completed', 'Remaining', 'Cumulative Range',
+            'Subject', 'Year', 'Status', 'Progress %'
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        cumulative = 0
+        for i, page in enumerate(pages, 1):
+            page_start = cumulative + 1
+            cumulative += page.get('total_questions', 0)
+            page_end = cumulative
+            
+            # Determine milestone based on cumulative range
+            milestone = "Beyond"
+            for m in milestones:
+                m_end = m.get('question_range_end', m.get('end_question', 0))
+                if page_end <= m_end:
+                    ms_num = m.get('milestone_number', 1)
+                    milestone = f"M{ms_num - 1}" if ms_num > 1 else "M1"
+                    break
+            
+            # Write row
+            writer.writerow({
+                'S.NO.': i,
+                'Milestone': milestone,
+                'PAGE NAME': page.get('page_name', 'N/A'),
+                'PAGE LINK': page.get('page_link', ''),
+                'TOTAL': page.get('total_questions', 0),
+                'Completed': page.get('completed_questions', 0),
+                'Remaining': page.get('remaining_questions', 0),
+                'Cumulative Range': f"Q{page_start}-Q{page_end}",
+                'Subject': page.get('subject', 'N/A'),
+                'Year': page.get('year', 'N/A'),
+                'Status': page.get('status', 'N/A'),
+                'Progress %': page.get('progress_percentage', 0)
+            })
+        
+        # Prepare response
+        output.seek(0)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"milestone_tracker_pages_{timestamp}.csv"
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exporting CSV: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/export/summary")
+async def export_summary():
+    """Get export summary with milestone breakdown (Public)"""
+    try:
+        pages = await db_manager.get_all_pages()
+        milestones = await db_manager.get_all_milestones()
+        
+        milestones.sort(key=lambda m: m.get('question_range_start', m.get('start_question', 0)))
+        
+        # Calculate statistics
+        total_pages = len(pages)
+        total_questions = sum(p.get('total_questions', 0) for p in pages)
+        total_completed = sum(p.get('completed_questions', 0) for p in pages)
+        
+        # Milestone breakdown
+        milestone_stats = {}
+        cumulative = 0
+        
+        for page in pages:
+            page_start = cumulative + 1
+            cumulative += page.get('total_questions', 0)
+            page_end = cumulative
+            
+            milestone = "Beyond"
+            for m in milestones:
+                m_end = m.get('question_range_end', m.get('end_question', 0))
+                if page_end <= m_end:
+                    ms_num = m.get('milestone_number', 1)
+                    milestone = f"M{ms_num - 1}" if ms_num > 1 else "M1"
+                    break
+            
+            if milestone not in milestone_stats:
+                milestone_stats[milestone] = {'pages': 0, 'total': 0, 'completed': 0}
+            
+            milestone_stats[milestone]['pages'] += 1
+            milestone_stats[milestone]['total'] += page.get('total_questions', 0)
+            milestone_stats[milestone]['completed'] += page.get('completed_questions', 0)
+        
+        return {
+            "summary": {
+                "total_pages": total_pages,
+                "total_questions": total_questions,
+                "total_completed": total_completed,
+                "progress_percentage": round(total_completed / total_questions * 100, 2) if total_questions > 0 else 0
+            },
+            "milestone_breakdown": milestone_stats,
+            "export_timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting export summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

@@ -269,6 +269,26 @@
                             </select>
                         </div>
                         <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search pages...">
+                        
+                        <!-- Download Buttons -->
+                        <div class="download-buttons">
+                            <div class="dropdown">
+                                <button class="btn btn-success dropdown-toggle" id="downloadDropdown" title="Download Data">
+                                    <i class="fas fa-download"></i> <span>Download</span>
+                                </button>
+                                <div class="dropdown-menu" id="downloadMenu">
+                                    <button class="dropdown-item" id="downloadFiltered">
+                                        <i class="fas fa-filter"></i> Download Filtered (CSV)
+                                    </button>
+                                    <button class="dropdown-item" id="downloadFull">
+                                        <i class="fas fa-file-csv"></i> Download All (CSV)
+                                    </button>
+                                    <button class="dropdown-item" id="downloadExcel">
+                                        <i class="fas fa-file-excel"></i> Download All (Excel)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 

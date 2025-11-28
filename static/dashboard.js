@@ -164,6 +164,45 @@ class MilestoneTracker {
             });
         }
         
+        // Download buttons
+        const downloadFull = document.getElementById('downloadFull');
+        if (downloadFull) {
+            downloadFull.addEventListener('click', () => {
+                this.downloadFullCsv();
+            });
+        }
+        
+        const downloadFiltered = document.getElementById('downloadFiltered');
+        if (downloadFiltered) {
+            downloadFiltered.addEventListener('click', () => {
+                this.downloadFilteredCsv();
+            });
+        }
+        
+        const downloadExcel = document.getElementById('downloadExcel');
+        if (downloadExcel) {
+            downloadExcel.addEventListener('click', () => {
+                this.downloadExcel();
+            });
+        }
+        
+        // Dropdown toggle
+        const downloadDropdown = document.getElementById('downloadDropdown');
+        const downloadMenu = document.getElementById('downloadMenu');
+        if (downloadDropdown && downloadMenu) {
+            downloadDropdown.addEventListener('click', (e) => {
+                e.stopPropagation();
+                downloadMenu.classList.toggle('show');
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!downloadDropdown.contains(e.target) && !downloadMenu.contains(e.target)) {
+                    downloadMenu.classList.remove('show');
+                }
+            });
+        }
+        
         // Removed unused admin panel event listeners for better performance
 
         const addPageForm = document.getElementById('addPageForm');
@@ -1488,6 +1527,152 @@ class MilestoneTracker {
 
     hideLoading() {
         // Loading will be replaced by actual data in updatePagesTable
+    }
+
+    // Download CSV methods
+    downloadFullCsv() {
+        window.location.href = '/api/export/csv';
+        this.showToast('Downloading full CSV...', 'success');
+    }
+
+    downloadFilteredCsv() {
+        const filteredPages = this.getFilteredPages();
+        
+        if (filteredPages.length === 0) {
+            this.showToast('No data to export with current filters', 'error');
+            return;
+        }
+        
+        const csvContent = this.generateCsvContent(filteredPages);
+        this.downloadCsvFile(csvContent, 'pages_filtered_export.csv');
+        this.showToast(`Downloaded ${filteredPages.length} filtered pages`, 'success');
+    }
+
+    downloadExcel() {
+        // For Excel, we'll use CSV with tab separator which Excel opens well
+        const pages = this.data.pages || [];
+        
+        if (pages.length === 0) {
+            this.showToast('No data to export', 'error');
+            return;
+        }
+        
+        const csvContent = this.generateCsvContent(pages, '\t');
+        this.downloadCsvFile(csvContent, 'pages_export.xls', 'application/vnd.ms-excel');
+        this.showToast('Downloading Excel file...', 'success');
+    }
+
+    getFilteredPages() {
+        const milestoneFilter = document.getElementById('milestoneFilter')?.value || 'all';
+        const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+        const searchInput = document.getElementById('searchInput')?.value.toLowerCase() || '';
+        
+        let filteredPages = [...(this.data.pages || [])];
+        
+        // Apply milestone filter
+        if (milestoneFilter !== 'all') {
+            filteredPages = filteredPages.filter(page => {
+                const milestone = this.getMilestoneForPage(page);
+                return milestone && milestone.name === milestoneFilter;
+            });
+        }
+        
+        // Apply status filter
+        if (statusFilter !== 'all') {
+            filteredPages = filteredPages.filter(page => {
+                const total = page.total_questions || 0;
+                const completed = page.completed || 0;
+                
+                if (statusFilter === 'completed') return completed === total && total > 0;
+                if (statusFilter === 'in-progress') return completed > 0 && completed < total;
+                if (statusFilter === 'not-started') return completed === 0;
+                return true;
+            });
+        }
+        
+        // Apply search filter
+        if (searchInput) {
+            filteredPages = filteredPages.filter(page => {
+                return (page.name && page.name.toLowerCase().includes(searchInput)) ||
+                       (page.page_link && page.page_link.toLowerCase().includes(searchInput)) ||
+                       (page.subject && page.subject.toLowerCase().includes(searchInput));
+            });
+        }
+        
+        return filteredPages;
+    }
+
+    getMilestoneForPage(page) {
+        if (!page || !this.data.milestones) return null;
+        
+        const cumStart = page.cumulative_start || 0;
+        const milestones = this.data.milestones;
+        
+        for (const milestone of milestones) {
+            const startQ = milestone.start_question || 0;
+            const endQ = milestone.end_question || 0;
+            if (cumStart >= startQ && cumStart <= endQ) {
+                return milestone;
+            }
+        }
+        return null;
+    }
+
+    generateCsvContent(pages, delimiter = ',') {
+        const headers = ['S.NO.', 'Milestone', 'PAGE NAME', 'PAGE LINK', 'TOTAL', 'Completed', 'Remaining', 'Cumulative Range', 'Subject', 'Year', 'Status', 'Progress %'];
+        
+        const rows = pages.map((page, index) => {
+            const total = page.total_questions || 0;
+            const completed = page.completed || 0;
+            const remaining = total - completed;
+            const milestone = this.getMilestoneForPage(page);
+            const milestoneName = milestone ? milestone.name : 'N/A';
+            
+            let status = 'Not Started';
+            if (completed === total && total > 0) status = 'Completed';
+            else if (completed > 0) status = 'In Progress';
+            
+            const progress = total > 0 ? ((completed / total) * 100).toFixed(1) : '0.0';
+            const cumRange = `${page.cumulative_start || 0}-${page.cumulative_end || 0}`;
+            
+            return [
+                index + 1,
+                milestoneName,
+                page.name || '',
+                page.page_link || '',
+                total,
+                completed,
+                remaining,
+                cumRange,
+                page.subject || '',
+                page.year || '',
+                status,
+                progress
+            ].map(val => {
+                // Escape values with quotes if they contain delimiter or quotes
+                const strVal = String(val);
+                if (strVal.includes(delimiter) || strVal.includes('"') || strVal.includes('\n')) {
+                    return `"${strVal.replace(/"/g, '""')}"`;
+                }
+                return strVal;
+            }).join(delimiter);
+        });
+        
+        return [headers.join(delimiter), ...rows].join('\n');
+    }
+
+    downloadCsvFile(content, filename, mimeType = 'text/csv') {
+        const blob = new Blob(['\ufeff' + content], { type: `${mimeType};charset=utf-8;` });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     showToast(message, type = 'success') {
